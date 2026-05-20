@@ -75,6 +75,66 @@ spec:
       remoteRef:
         key: /sentry-dsn/backend
 ---
+# Tailnet device for this service. Auth key minted by
+# terraform/tailscale-devices/ in coilysiren/infrastructure under the
+# short name `backend`; lands in SSM at /coilysiren/backend/ts-authkey
+# and the ExternalSecret below materializes it into the namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${NAME}-ts
+  namespace: ${NAME}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ${NAME}-ts-state
+  namespace: ${NAME}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["ts-state"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ${NAME}-ts-state
+  namespace: ${NAME}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ${NAME}-ts-state
+subjects:
+  - kind: ServiceAccount
+    name: ${NAME}-ts
+    namespace: ${NAME}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: ts-authkey
+  namespace: ${NAME}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-parameter-store
+    kind: ClusterSecretStore
+  target:
+    name: ts-authkey
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        authkey: "{{ .authkey }}"
+  data:
+    - secretKey: authkey
+      remoteRef:
+        key: /coilysiren/backend/ts-authkey
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -91,6 +151,11 @@ spec:
       labels:
         app: ${NAME}-app
     spec:
+      serviceAccountName: ${NAME}-ts
+      # /dev/net/tun for the ts sidecar lives on kai-server (native
+      # Linux 6.8); WSL2 nodes don't expose it.
+      nodeSelector:
+        kubernetes.io/hostname: kai-server
       imagePullSecrets:
         - name: docker-registry
       containers:
@@ -125,6 +190,38 @@ spec:
                   key: SENTRY_DSN
           ports:
             - containerPort: 80
+        # tailscale sidecar in kernel mode. Same pattern as canary
+        # repo-recall (coilysiren/infrastructure#201) and eco-mcp-app.
+        - name: ts
+          image: tailscale/tailscale:v1.78.1
+          env:
+            - name: TS_HOSTNAME
+              value: backend
+            - name: TS_KUBE_SECRET
+              value: ts-state
+            - name: TS_USERSPACE
+              value: "false"
+            - name: TS_AUTH_ONCE
+              value: "true"
+            - name: TS_EXTRA_ARGS
+              value: "--accept-dns=false"
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: ts-authkey
+                  key: authkey
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
       restartPolicy: Always
 
 ---
@@ -133,8 +230,6 @@ kind: Service
 metadata:
   name: ${NAME}-service
   namespace: ${NAME}
-  annotations:
-    tailscale.com/expose: "true"
 spec:
   type: ClusterIP
   selector:
