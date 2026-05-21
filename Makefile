@@ -7,9 +7,11 @@ email ?= $(shell cat coily.yaml | yq e '.email')
 name ?= $(shell cat coily.yaml | yq e '.name')
 name-dashed ?= $(subst /,-,$(name))
 git-hash ?= $(shell git rev-parse HEAD)
-# Local-only image tag. CI builds this, docker-saves it, and sideloads
-# it into kai-server's containerd - there is no registry in the path.
-image-url ?= $(name-dashed):$(git-hash)
+# Fully-qualified ref. CI builds this, docker-saves it, and sideloads it
+# into kai-server's containerd - nothing is pushed to a registry. The
+# ghcr.io prefix is only there so kubelet's canonicalization is a no-op
+# and its IfNotPresent lookup matches the imported ref (repo-recall#219).
+image-url ?= ghcr.io/coilysiren/$(name-dashed):$(git-hash)
 
 echo:
 	echo $(image-url)
