@@ -2,9 +2,9 @@ DEFAULT_GOAL := help
 
 .PHONY: deploy
 
-dns-name ?= $(shell cat config.yml | yq e '.dns-name')
-email ?= $(shell cat config.yml | yq e '.email')
-name ?= $(shell cat config.yml | yq e '.name')
+dns-name ?= $(shell cat coily.yaml | yq e '.dns-name')
+email ?= $(shell cat coily.yaml | yq e '.email')
+name ?= $(shell cat coily.yaml | yq e '.name')
 name-dashed ?= $(subst /,-,$(name))
 git-hash ?= $(shell git rev-parse HEAD)
 image-url ?= ghcr.io/$(name)/$(name-dashed):$(git-hash)
