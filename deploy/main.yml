@@ -3,34 +3,11 @@ kind: Namespace
 metadata:
   name: ${NAME}
 ---
-# GHCR pull-secret, synced declaratively from AWS SSM via the cluster's
-# external-secrets operator. `/github/pat` is the shared PAT for ghcr.io/coilysiren
-# and lives in AWS SSM Parameter Store (encrypted). ESO renders it into a
-# kubernetes.io/dockerconfigjson secret, no manual kubectl create, no PAT
-# materializing anywhere outside the cluster.
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: docker-registry
-  namespace: ${NAME}
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: aws-parameter-store
-    kind: ClusterSecretStore
-  target:
-    name: docker-registry
-    creationPolicy: Owner
-    template:
-      type: kubernetes.io/dockerconfigjson
-      data:
-        .dockerconfigjson: |
-          {"auths":{"ghcr.io":{"auth":"{{ printf "coilysiren:%s" .pat | b64enc }}"}}}
-  data:
-    - secretKey: pat
-      remoteRef:
-        key: /github/pat
----
+# No GHCR pull-secret. The image is built in CI, docker-saved, and
+# streamed into kai-server's k3s containerd over tailscale ssh (see
+# .github/workflows/build-and-publish.yml). The cluster never pulls
+# from a registry, so there is no imagePullSecret to sync.
+#
 # Postgres password for the ambient datastore. Backs both the Postgres
 # StatefulSet (POSTGRES_PASSWORD) and the app's asyncpg pool (PGPASSWORD).
 # /coilysiren/backend/db-password lives in AWS SSM (SecureString).
@@ -250,11 +227,12 @@ spec:
       # Linux 6.8); WSL2 nodes don't expose it.
       nodeSelector:
         kubernetes.io/hostname: kai-server
-      imagePullSecrets:
-        - name: docker-registry
       containers:
         - name: ${NAME}
           image: ${IMAGE}
+          # The image is sideloaded into containerd by CI; never pull
+          # it. The SHA-pinned local tag has no registry to pull from.
+          imagePullPolicy: IfNotPresent
           resources:
             requests:
               cpu: "100m"

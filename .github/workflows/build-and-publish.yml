@@ -6,93 +6,57 @@ on:
       - main
 
 jobs:
-  build-publish:
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - run: name=coilysiren-backend make .build-docker
-      - run: docker tag coilysiren-backend:latest ghcr.io/${{ github.repository }}/coilysiren-backend:${{ github.sha }}
-      - run: docker push ghcr.io/${{ github.repository }}/coilysiren-backend:${{ github.sha }}
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run pytest
+
   deploy:
     runs-on: ubuntu-latest
-    needs: build-publish
+    needs: test
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: tailscale/github-action@v3
+      # OIDC tailnet join. GitHub mints a short-lived token, Tailscale
+      # verifies it against the per-repo federated identity in
+      # infrastructure/terraform/tailscale-oidc/. No kubeconfig and no
+      # GHCR in CI - the image is built here, docker-saved, and streamed
+      # into kai-server's k3s containerd over an SSH tunnel. Pattern
+      # mirrors coilysiren/galaxy-gen and coilysiren/repo-recall; it
+      # sidesteps the cluster-side registry pull entirely.
+      - uses: tailscale/github-action@v4
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          oauth-client-id: ${{ secrets.TS_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
           tags: tag:ci
-      - run: sudo tailscale up --accept-dns --accept-routes --advertise-tags=tag:ci --hostname=github-actions
-      - name: kubectl
+          use-cache: "true"
+          hostname: github-actions-${{ github.run_id }}
+      # Build the image, save it to a tarball, pipe it over tailscale
+      # ssh into kai-server's containerd, then roll the deployment to
+      # the SHA-pinned ref. The tag is local-only (no registry prefix)
+      # and non-latest, so kubelet's IfNotPresent lookup matches the
+      # ref containerd stored on import - no pull, no imagePullSecret.
+      - name: Build, ship, roll
         run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      - name: kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          cat <<EOF > ~/.kube/config
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - name: default
-            cluster:
-              server: ${{ secrets.K8S_SERVER }}
-              certificate-authority-data: ${{ secrets.K8S_CA_DATA }}
-          contexts:
-          - name: default
-            context:
-              cluster: default
-              user: default
-          current-context: default
-          preferences: {}
-          users:
-          - name: default
-            user:
-              client-certificate-data: ${{ secrets.K8S_CLIENT_CERT_DATA }}
-              client-key-data: ${{ secrets.K8S_CLIENT_KEY_DATA }}
-          EOF
-      - run: make .deploy
-      - name: rollout status
-        env:
-          NS: coilysiren-backend
-          DEP: coilysiren-backend-app
-        run: kubectl -n "$NS" rollout status deployment/"$DEP" --timeout=10m
-      - name: rollout diagnostics on failure
-        if: failure()
-        env:
-          NS: coilysiren-backend
-          DEP: coilysiren-backend-app
-        run: |
-          echo "::group::pods"
-          kubectl -n "$NS" get pods -o wide || true
-          echo "::endgroup::"
-          echo "::group::describe deployment"
-          kubectl -n "$NS" describe deployment "$DEP" || true
-          echo "::endgroup::"
-          echo "::group::describe pods"
-          kubectl -n "$NS" describe pods -l app="$DEP" || true
-          echo "::endgroup::"
-          echo "::group::events"
-          kubectl -n "$NS" get events --sort-by=.lastTimestamp | tail -50 || true
-          echo "::endgroup::"
-          echo "::group::logs (current)"
-          kubectl -n "$NS" logs --tail=200 -l app="$DEP" --all-containers=true || true
-          echo "::endgroup::"
-          echo "::group::logs (previous)"
-          kubectl -n "$NS" logs --tail=200 -l app="$DEP" --all-containers=true --previous || true
-          echo "::endgroup::"
-      # Write build/deploy status into the ambient datastore. The Mac-side
-      # poller reads namespace=ci-status, key=<repo>@<commit> and renders a
-      # local notification. See coilysiren/backend#65.
+          set -euo pipefail
+          IMAGE=coilysiren-backend:${{ github.sha }}
+          name=coilysiren-backend make .build-docker
+          docker tag coilysiren-backend:latest "$IMAGE"
+          docker save "$IMAGE" | \
+            tailscale ssh deploy@kai-server \
+              "sudo k3s ctr -n k8s.io images import -"
+          tailscale ssh deploy@kai-server \
+            "kubectl -n coilysiren-backend set image deploy/coilysiren-backend-app coilysiren-backend=$IMAGE"
+          tailscale ssh deploy@kai-server \
+            "kubectl -n coilysiren-backend rollout status deploy/coilysiren-backend-app --timeout=5m"
+      # Write build/deploy status into the ambient datastore. The
+      # Mac-side poller reads namespace=ci-status, key=<repo>@<commit>
+      # and renders a local notification. See coilysiren/backend#65.
       - name: report status to datastore
         if: always()
         env:

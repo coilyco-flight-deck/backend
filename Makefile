@@ -7,7 +7,9 @@ email ?= $(shell cat coily.yaml | yq e '.email')
 name ?= $(shell cat coily.yaml | yq e '.name')
 name-dashed ?= $(subst /,-,$(name))
 git-hash ?= $(shell git rev-parse HEAD)
-image-url ?= ghcr.io/$(name)/$(name-dashed):$(git-hash)
+# Local-only image tag. CI builds this, docker-saves it, and sideloads
+# it into kai-server's containerd - there is no registry in the path.
+image-url ?= $(name-dashed):$(git-hash)
 
 echo:
 	echo $(image-url)
@@ -30,12 +32,9 @@ build-native: ## uv lock + uv sync.
 
 build-docker: .build-docker ## Build the docker image locally with BuildKit cache.
 
-.publish:
-	docker tag $(name):$(git-hash) $(image-url)
-	docker push $(image-url)
-
-publish: build-docker .publish ## Tag and push the docker image to ghcr.io.
-
+# Apply the k8s manifest. The image roll itself is done by CI's
+# docker-save sideload (see .github/workflows/build-and-publish.yml);
+# this target is for applying structural changes to deploy/main.yml.
 .deploy:
 	env \
 		NAME=$(name-dashed) \
@@ -44,7 +43,7 @@ publish: build-docker .publish ## Tag and push the docker image to ghcr.io.
 		envsubst < deploy/main.yml | kubectl apply -f -
 	kubectl rollout status deployment/$(name-dashed)-app -n $(name-dashed) --timeout=5m
 
-deploy: publish .deploy ## Deploy the application to the cluster.
+deploy: .deploy ## Apply the k8s manifest to the cluster.
 
 run-native: ## Run the FastAPI server with autoreload on port 4000.
 	uv run uvicorn backend.main:app --reload --port 4000 --host 0.0.0.0
