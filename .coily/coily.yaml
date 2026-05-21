@@ -13,9 +13,9 @@ commands:
   build-docker:
     run: make build-docker
     description: Build the docker image locally with BuildKit cache.
-  publish:
-    run: make publish
-    description: Tag and push the docker image to ghcr.io.
+  deploy:
+    run: make deploy
+    description: Apply the k8s manifest to the cluster.
   run-native:
     run: make run-native
     description: Run the FastAPI server with autoreload on port 4000.

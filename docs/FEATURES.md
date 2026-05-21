@@ -29,8 +29,9 @@ FastAPI service behind `api.coilysiren.me`. Hosts the ambient personal CRUD data
 ## Platform and deployment
 
 - **Container image** - Python 3.13 + uv multi-stage build.
+- **Registry-free deploy** - CI builds the image, `docker save`s it, and streams the tarball into kai-server's k3s containerd over a tailscale-ssh tunnel, then `set image` + rollout. No GHCR pull, no imagePullSecret. Mirrors the galaxy-gen / repo-recall rig.
 - **Kubernetes manifests** - app Deployment, Postgres StatefulSet + 5Gi PVC, ClusterIP + headless DB Service, Traefik Ingress, ExternalSecrets.
-- **Secret sync** - GHCR / Postgres password / datastore token / Sentry DSN / Tailscale authkey from AWS SSM, 1h refresh.
+- **Secret sync** - Postgres password / datastore token / Sentry DSN / Tailscale authkey from AWS SSM, 1h refresh.
 - **Tailnet** - in-Pod Tailscale sidecar in kernel mode.
 - **TLS** - cert-manager + Let's Encrypt via Traefik.
 - **CORS / trusted hosts** - dev permissive, prod restricted to `coilysiren.me`.
