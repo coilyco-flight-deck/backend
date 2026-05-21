@@ -34,7 +34,7 @@ catalog:
   system: shared
   owner: kai
   lifecycle: production
-  description: "Ambient personal CRUD datastore - FastAPI over a generic Postgres items table."
+  description: "Generic data-accessibility framework - internal FastAPI over Postgres, uniform modes for document, queue, sql, file, health."
   dependsOn: []
   providesApis:
-    - items-datastore
+    - modes-framework

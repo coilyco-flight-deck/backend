@@ -1,10 +1,8 @@
 import asyncio
 import contextlib
-import os
 
 import fastapi
 import fastapi.middleware.cors as cors
-import fastapi.middleware.trustedhost as trustedhost
 import opentelemetry.trace as otel_trace
 import requests.exceptions
 import sentry_sdk
@@ -128,8 +126,17 @@ class ErrorHandlingMiddleware(middleware.BaseHTTPMiddleware):
 
 @contextlib.asynccontextmanager
 async def _lifespan(_app: fastapi.FastAPI):
-    """Open the Postgres pool on startup, close it on shutdown."""
+    """Open the Postgres pool, init every mode on startup, close on shutdown.
+
+    Each mode's `init` creates its schema and upserts its sentinel. Done here
+    so the modes package stays decoupled from the app object.
+    """
+    from . import modes
+
     await datastore.connect()
+    pool = datastore.require_pool()
+    for mode in modes.ALL_MODES:
+        await mode.init(pool)
     yield
     await datastore.close()
 
@@ -154,29 +161,10 @@ def init() -> tuple[fastapi.FastAPI, slowapi.Limiter]:
 
     app.add_middleware(OpenTelemetryMiddleware)
 
-    # Allow requests to come in from specific places (part 1)
-    app.add_middleware(
-        cors.CORSMiddleware,
-        allow_origins=(
-            [
-                "https://coilysiren.me",
-                "https://www.coilysiren.me",
-                "https://api.coilysiren.me",
-            ]
-            if os.getenv("PRODUCTION", "").lower().strip() == "true"
-            else ["*"]
-        ),
-    )
-
-    # Allow requests to come in from specific places (part 2)
-    if os.getenv("PRODUCTION", "").lower().strip() == "true":
-        app.add_middleware(
-            trustedhost.TrustedHostMiddleware,
-            allowed_hosts=[
-                "coilysiren.me",
-                "api.coilysiren.me",
-            ],
-        )
+    # CORS stays permissive: the service is tailnet-internal now, reachable
+    # only through the in-Pod Tailscale sidecar. No public ingress, so there
+    # is no public origin list and no TrustedHost host allowlist to maintain.
+    app.add_middleware(cors.CORSMiddleware, allow_origins=["*"])
 
     ##################
     # END MIDDLEWARE #

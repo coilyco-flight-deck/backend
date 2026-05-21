@@ -1,6 +1,6 @@
-"""Tests for the ambient datastore auth and DSN logic.
+"""Tests for the shared datastore layer: auth, DSN, and sentinel registry.
 
-The pure tests run anywhere. The CRUD round-trip is skipped unless
+The pure tests run anywhere. The DB round-trip is skipped unless
 BACKEND_TEST_DATABASE_URL points at a throwaway Postgres.
 """
 
@@ -62,29 +62,36 @@ def test_database_url_prefers_full(monkeypatch):
     assert datastore._database_url() == sentinel
 
 
+def test_require_pool_unconnected():
+    # No pool open in a pure test process.
+    datastore._pool = None
+    with pytest.raises(fastapi.HTTPException) as exc:
+        datastore.require_pool()
+    assert exc.value.status_code == 503
+
+
 @pytest.mark.skipif(
     not os.getenv("BACKEND_TEST_DATABASE_URL"),
-    reason="set BACKEND_TEST_DATABASE_URL to run the Postgres CRUD round-trip",
+    reason="set BACKEND_TEST_DATABASE_URL to run the Postgres sentinel round-trip",
 )
 @pytest.mark.asyncio
-async def test_crud_round_trip(monkeypatch):
+async def test_sentinel_round_trip(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", os.environ["BACKEND_TEST_DATABASE_URL"])
     await datastore.connect()
     try:
-        ns, key = "pytest", "round-trip"
-        await datastore.delete_items(ns, key)
-
-        created = await datastore.create_item(ns, key, {"n": 1})
-        assert created["payload"] == {"n": 1}
-
-        await datastore.create_item(ns, key, {"n": 2})
-        latest = await datastore.get_latest_item(ns, key)
-        assert latest is not None and latest["payload"] == {"n": 2}
-
-        listed = await datastore.list_items(ns, key, 50)
-        assert len(listed) == 2
-
-        assert await datastore.delete_items(ns, key) == 2
-        assert await datastore.get_latest_item(ns, key) is None
+        pool = datastore.require_pool()
+        await datastore.register_sentinel(pool, "pytest-mode", {"field": "value"}, "test sentinel")
+        sentinels = await datastore.list_sentinels(pool)
+        match = [s for s in sentinels if s["mode"] == "pytest-mode"]
+        assert len(match) == 1
+        assert match[0]["shape"] == {"field": "value"}
+        # Upsert is idempotent.
+        await datastore.register_sentinel(
+            pool, "pytest-mode", {"field": "updated"}, "test sentinel"
+        )
+        sentinels = await datastore.list_sentinels(pool)
+        match = [s for s in sentinels if s["mode"] == "pytest-mode"]
+        assert match[0]["shape"] == {"field": "updated"}
+        await pool.execute("DELETE FROM sentinels WHERE mode = 'pytest-mode'")
     finally:
         await datastore.close()

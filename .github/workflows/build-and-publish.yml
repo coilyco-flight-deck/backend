@@ -59,9 +59,11 @@ jobs:
             "kubectl -n coilysiren-backend set image deploy/coilysiren-backend-app coilysiren-backend=$IMAGE"
           tailscale ssh deploy@kai-server \
             "kubectl -n coilysiren-backend rollout status deploy/coilysiren-backend-app --timeout=5m"
-      # Write build/deploy status into the ambient datastore. The
-      # Mac-side poller reads namespace=ci-status, key=<repo>@<commit>
-      # and renders a local notification. See coilysiren/backend#65.
+      # Write build/deploy status into the document mode. This job is
+      # tailnet-joined, so it POSTs to the internal host `api` (no public
+      # ingress). The Mac-side poller reads namespace=ci-status,
+      # key=<repo>@<commit> and renders a local notification.
+      # See coilysiren/backend#65, coilysiren/backend#77.
       - name: report status to datastore
         if: always()
         env:
@@ -71,7 +73,7 @@ jobs:
           STATUS: ${{ job.status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          curl -fsS -X POST https://api.coilysiren.me/items \
+          curl -fsS -X POST http://api/document \
             -H "Authorization: Bearer $DATASTORE_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$(jq -nc \

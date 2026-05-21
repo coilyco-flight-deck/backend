@@ -1,10 +1,19 @@
+"""Entry point: build the app and mount every mode's router.
+
+`backend` is a generic data-accessibility framework. Each mode under
+`backend/modes/` owns a table and ships an `APIRouter` plus an `init`. This
+module mounts all of them; `application.py`'s lifespan calls each `init`.
+
+Design: coilysiren/backend#77.
+"""
+
 import dotenv
 import fastapi
 import opentelemetry.instrumentation.fastapi as otel_fastapi
 import structlog
 import structlog.processors
 
-from . import application, datastore
+from . import application, modes
 
 dotenv.load_dotenv()
 (app, limiter) = application.init()
@@ -29,66 +38,11 @@ async def trigger_error():
     return 1 / 0
 
 
-# Ambient personal CRUD datastore. A generic `items` table in Postgres holds
-# small JSON documents keyed by (namespace, key). First consumer is the CI
-# release pipeline writing build/deploy status that the Mac side polls.
-# Design: coilysiren/backend#65, coilysiren/agentic-os-kai#657.
-
-
-@app.post("/items")
-@app.post("/items/")
-@limiter.limit("20/second")
-async def create_item(
-    request: fastapi.Request,
-    body: datastore.ItemCreate,
-    _: None = fastapi.Depends(datastore.require_token),
-):
-    """Append a document. Rows are append-only; reads return the newest per key."""
-    return await datastore.create_item(body.namespace, body.key, body.payload)
-
-
-@app.get("/items/{namespace}")
-@app.get("/items/{namespace}/")
-@limiter.limit("20/second")
-async def list_items(
-    request: fastapi.Request,
-    namespace: str,
-    key: str | None = None,
-    limit: int = 50,
-    _: None = fastapi.Depends(datastore.require_token),
-):
-    """List documents in a namespace, newest first. Optional `key` filter."""
-    return await datastore.list_items(namespace, key, limit)
-
-
-@app.get("/items/{namespace}/{key}")
-@app.get("/items/{namespace}/{key}/")
-@limiter.limit("20/second")
-async def get_item(
-    request: fastapi.Request,
-    namespace: str,
-    key: str,
-    _: None = fastapi.Depends(datastore.require_token),
-):
-    """Return the newest document for (namespace, key), or 404."""
-    item = await datastore.get_latest_item(namespace, key)
-    if item is None:
-        raise fastapi.HTTPException(status_code=404, detail="item not found")
-    return item
-
-
-@app.delete("/items/{namespace}/{key}")
-@app.delete("/items/{namespace}/{key}/")
-@limiter.limit("20/second")
-async def delete_item(
-    request: fastapi.Request,
-    namespace: str,
-    key: str,
-    _: None = fastapi.Depends(datastore.require_token),
-):
-    """Delete every document for (namespace, key). Returns the row count removed."""
-    deleted = await datastore.delete_items(namespace, key)
-    return {"deleted": deleted}
+# Mount every mode's router. Each mode owns one table and a sentinel record;
+# adding a mode is a new module under backend/modes/ plus an entry in its
+# ALL_MODES list - nothing in this file changes.
+for _mode in modes.ALL_MODES:
+    app.include_router(_mode.router)
 
 
 otel_fastapi.FastAPIInstrumentor.instrument_app(app)

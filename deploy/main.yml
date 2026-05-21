@@ -29,8 +29,8 @@ spec:
       remoteRef:
         key: /coilysiren/backend/db-password
 ---
-# Bearer token for the /items CRUD routes. The app validates it via
-# backend/datastore.py's require_token dependency; the CI release pipeline
+# Bearer token for every mode route. The app validates it via
+# backend/datastore.py's require_token dependency. The CI release pipeline
 # and the Mac-side poller send it. /coilysiren/backend/datastore-token
 # lives in AWS SSM (SecureString).
 apiVersion: external-secrets.io/v1
@@ -269,6 +269,13 @@ spec:
                 secretKeyRef:
                   name: ${NAME}-sentry
                   key: SENTRY_DSN
+            # Temp-tier file storage for the `file` mode. Backed by the
+            # ephemeral emptyDir below - write-only, gone on Pod restart.
+            - name: FILE_TEMP_DIR
+              value: /data/temp
+          volumeMounts:
+            - name: file-temp
+              mountPath: /data/temp
           ports:
             - containerPort: 80
         # tailscale sidecar in kernel mode. Same pattern as canary
@@ -277,7 +284,7 @@ spec:
           image: tailscale/tailscale:v1.78.1
           env:
             - name: TS_HOSTNAME
-              value: backend
+              value: api
             - name: TS_KUBE_SECRET
               value: ts-state
             - name: TS_USERSPACE
@@ -304,6 +311,11 @@ spec:
               cpu: 200m
               memory: 128Mi
       restartPolicy: Always
+      # Ephemeral temp tier for the `file` mode. emptyDir - lives and dies
+      # with the Pod, no durable tier in v1.
+      volumes:
+        - name: file-temp
+          emptyDir: {}
 
 ---
 apiVersion: v1
@@ -319,30 +331,5 @@ spec:
     - port: 80
       targetPort: 80
       protocol: TCP
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ${NAME}-ingress
-  namespace: ${NAME}
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-production
-    kubernetes.io/tls-acme: "true"
-spec:
-  ingressClassName: traefik
-  tls:
-    - hosts:
-        - ${DNS_NAME}
-      secretName: ${NAME}-tls
-  rules:
-    - host: ${DNS_NAME}
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: ${NAME}-service
-                port:
-                  number: 80
+# No Ingress. The service is internal-only, reachable on the tailnet via the
+# in-Pod Tailscale sidecar (TS_HOSTNAME=api). No public TLS, no cert-manager.
