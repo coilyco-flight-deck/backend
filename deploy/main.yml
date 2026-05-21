@@ -204,7 +204,9 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 5Gi
+            # Ambient KV store of small JSON docs - single-digit MB in
+            # practice. 1Gi is already generous.
+            storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
