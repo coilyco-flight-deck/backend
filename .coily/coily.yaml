@@ -22,31 +22,19 @@ commands:
   run-docker:
     run: make run-docker
     description: Run the published container locally on port 4000.
-  clear-cache:
-    run: make clear-cache
-    description: Delete cache keys with the given suffix. Args - suffix=<str>.
-  bsky-cli:
-    run: make bsky-cli
-    description: Call a Bluesky XRPC endpoint with caching. Args - path=<str> kwargs=<str>.
-  bsky-get-author-feed-texts:
-    run: make bsky-get-author-feed-texts
-    description: Dump an author's feed texts. Args - handle=<str> pages=<int>.
-  bsky-emoji-summary:
-    run: make bsky-emoji-summary
-    description: Run the emoji-summary NLP job. Args - handle=<str> num_keywords=<int> num_feed_pages=<int>.
-  stream-video:
-    run: make stream-video
-    description: Stream a local video file in fixed-size chunks. Args - path=<str> chunk_size=<int>.
+  test:
+    run: make test
+    description: Run the pytest suite.
 
 # Catalog metadata for the cross-repo knowledge graph.
 # Schema: coilysiren/agentic-os-kai#420 (tracker).
 catalog:
   kind: Component
-  type: library
+  type: service
   system: shared
   owner: kai
   lifecycle: production
-  description: "Generic Python backend server template."
+  description: "Ambient personal CRUD datastore - FastAPI over a generic Postgres items table."
   dependsOn: []
   providesApis:
-    - python-backend-template
+    - items-datastore

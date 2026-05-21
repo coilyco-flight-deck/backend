@@ -52,25 +52,5 @@ run-native: ## Run the FastAPI server with autoreload on port 4000.
 run-docker: ## Run the published container locally on port 4000.
 	docker run --expose 4000 -p 4000:4000 -it --rm $(name):latest
 
-# Dev/debug CLI targets. Each delegates to `backend.cli`. Pass values as
-# variables, e.g. `make bsky-emoji-summary handle=coilysiren.me`.
-
-clear-cache: ## Delete cache keys with the given suffix. Args - suffix=<str>.
-	uv run python -m backend.cli clear-cache --suffix $(suffix)
-
-bsky-cli: ## Call a Bluesky XRPC endpoint with caching. Args - path=<str> kwargs=<str>.
-	uv run python -m backend.cli bsky-cli --path "$(path)" --kwargs "$(kwargs)"
-
-bsky-get-author-feed-texts: ## Dump an author's feed texts. Args - handle=<str> pages=<int>.
-	uv run python -m backend.cli bsky-get-author-feed-texts \
-		--handle $(handle) --pages $(or $(pages),1)
-
-bsky-emoji-summary: ## Run the emoji-summary NLP job. Args - handle=<str> num_keywords=<int> num_feed_pages=<int>.
-	uv run python -m backend.cli bsky-emoji-summary \
-		--handle $(handle) \
-		--num-keywords $(or $(num_keywords),25) \
-		--num-feed-pages $(or $(num_feed_pages),25)
-
-stream-video: ## Stream a local video file in fixed-size chunks. Args - path=<str> chunk_size=<int>.
-	uv run python -m backend.cli stream-video \
-		--path $(path) --chunk-size $(or $(chunk_size),1)
+test: ## Run the pytest suite.
+	uv run pytest
