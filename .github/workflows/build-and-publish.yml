@@ -90,3 +90,24 @@ jobs:
           echo "::group::logs (previous)"
           kubectl -n "$NS" logs --tail=200 -l app="$DEP" --all-containers=true --previous || true
           echo "::endgroup::"
+      # Write build/deploy status into the ambient datastore. The Mac-side
+      # poller reads namespace=ci-status, key=<repo>@<commit> and renders a
+      # local notification. See coilysiren/backend#65.
+      - name: report status to datastore
+        if: always()
+        env:
+          DATASTORE_TOKEN: ${{ secrets.DATASTORE_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+          STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -fsS -X POST https://api.coilysiren.me/items \
+            -H "Authorization: Bearer $DATASTORE_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -nc \
+              --arg repo "$REPO" \
+              --arg commit "$COMMIT" \
+              --arg status "$STATUS" \
+              --arg run_url "$RUN_URL" \
+              '{namespace:"ci-status", key:($repo+"@"+$commit), payload:{repo:$repo, commit:$commit, status:$status, run_url:$run_url}}')"

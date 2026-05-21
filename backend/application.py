@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 
 import fastapi
@@ -15,6 +16,7 @@ import starlette.requests
 import starlette.responses
 import structlog
 
+from . import datastore
 from . import telemetry as _telemetry
 
 telemetry = _telemetry.Telemetry()
@@ -124,8 +126,16 @@ class ErrorHandlingMiddleware(middleware.BaseHTTPMiddleware):
                 )
 
 
+@contextlib.asynccontextmanager
+async def _lifespan(_app: fastapi.FastAPI):
+    """Open the Postgres pool on startup, close it on shutdown."""
+    await datastore.connect()
+    yield
+    await datastore.close()
+
+
 def init() -> tuple[fastapi.FastAPI, slowapi.Limiter]:
-    app = fastapi.FastAPI()
+    app = fastapi.FastAPI(lifespan=_lifespan)
 
     ####################
     # START MIDDLEWARE #
@@ -178,8 +188,9 @@ def init() -> tuple[fastapi.FastAPI, slowapi.Limiter]:
     limiter = slowapi.Limiter(key_func=slowapi.util.get_remote_address)
     app.state.limiter = limiter
     app.add_exception_handler(
-        slowapi.errors.RateLimitExceeded, slowapi._rate_limit_exceeded_handler
-    )  # type: ignore
+        slowapi.errors.RateLimitExceeded,
+        slowapi._rate_limit_exceeded_handler,  # type: ignore[arg-type]
+    )
     # pylint: enable=protected-access
 
     return app, limiter

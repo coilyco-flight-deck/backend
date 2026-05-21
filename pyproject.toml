@@ -9,7 +9,8 @@ dependencies = [
   "uvicorn[standard]>=0.44.0,<0.45.0",
   "python-dotenv>=1.2.2,<2.0.0",
   "slowapi>=0.1.9,<0.2.0",
-  "atproto>=0.0.65,<0.0.66",
+  "asyncpg>=0.30.0,<0.31.0",
+  "requests>=2.32.0,<3.0.0",
   "structlog>=25.5.0,<26.0.0",
   "opentelemetry-instrumentation>=0.62b0,<0.63",
   "opentelemetry-distro>=0.62b0,<0.63",
@@ -17,11 +18,6 @@ dependencies = [
   "opentelemetry-api>=1.41.0,<2.0.0",
   "sentry-sdk[fastapi]>=2.58.0,<3.0.0",
   "opentelemetry-instrumentation-fastapi>=0.62b0,<0.63",
-  "websockets>=13,<17",
-  "spacy>=3.8.14,<4.0.0",
-  "nltk>=3.9.4,<4.0.0",
-  "yake>=0.7.3,<0.8.0",
-  "numpy>=2.4.0,<3.0.0",
 ]
 
 [dependency-groups]
@@ -32,15 +28,23 @@ dev = [
   "notebook>=7.5.6,<8.0.0",
   "types-requests>=2.33.0.20260408,<3.0.0",
   "pytest>=9.0.3,<10.0.0",
+  "pytest-asyncio>=1.0.0,<2.0.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-extend-exclude = ["notebook.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "RUF"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are designed to be called in
+# argument defaults; that is not the B008 antipattern.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.security.HTTPBearer"]
 
 [tool.mypy]
 python_version = "3.13"

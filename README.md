@@ -1,11 +1,13 @@
 # backend
 
-FastAPI service behind api.coilysiren.me. Deploys to the k3s homelab via the canonical rig in [infrastructure/docs/k3s-deploy-notes.md](../infrastructure/docs/k3s-deploy-notes.md).
+FastAPI service behind `api.coilysiren.me`. Hosts the ambient personal CRUD datastore - a generic `items` table in Postgres with authed CRUD endpoints in front of it. First consumer is the CI release pipeline writing build/deploy status that the Mac side polls. Design: [coilysiren/backend#65](https://github.com/coilysiren/backend/issues/65), [coilysiren/agentic-os-kai#657](https://github.com/coilysiren/agentic-os-kai/issues/657).
+
+Deploys to the k3s homelab via the canonical rig in [infrastructure/docs/k3s-deploy-notes.md](../infrastructure/docs/k3s-deploy-notes.md).
 
 ## Install
 
 ```bash
-brew install uv jq ffmpeg mpv
+brew install uv jq
 brew install --cask docker
 ```
 
@@ -14,11 +16,20 @@ brew install --cask docker
 Create `.env`:
 
 ```bash
-BSKY_USERNAME=coilysiren.me
-BSKY_PASSWORD=xxxx-xxxx-xxxx-xxxx   # https://bsky.app/settings/app-passwords
-BSKY_BOT_USERNAME=coilysiren-bot.bsky.social
-BSKY_BOT_PASSWORD=xxxx-xxxx-xxxx-xxxx
+PRODUCTION=false
+DATASTORE_TOKEN=dev-token              # bearer token the /items routes validate
+DATABASE_URL=postgresql://backend:backend@localhost:5432/backend
 OTEL_SDK_DISABLED=true
+```
+
+`DATABASE_URL` can be left unset and assembled from `PGHOST` / `PGUSER` / `PGPASSWORD` / `PGDATABASE` / `PGPORT` instead, which is how the k8s manifest injects it.
+
+A local Postgres for development:
+
+```bash
+docker run -d --name backend-db -p 5432:5432 \
+  -e POSTGRES_USER=backend -e POSTGRES_PASSWORD=backend -e POSTGRES_DB=backend \
+  postgres:17
 ```
 
 ## Run
@@ -27,17 +38,29 @@ OTEL_SDK_DISABLED=true
 make build-native    # uv lock + uv sync
 make run-native      # uvicorn on :4000
 
-make build-docker
-make run-docker
+curl -s -X POST http://localhost:4000/items \
+  -H "Authorization: Bearer dev-token" \
+  -H "Content-Type: application/json" \
+  -d '{"namespace":"ci-status","key":"demo","payload":{"status":"ok"}}' | jq
 
-curl http://localhost:4000/bsky/coilysiren.me/profile | jq
+curl -s http://localhost:4000/items/ci-status/demo \
+  -H "Authorization: Bearer dev-token" | jq
 ```
 
-## Data science notebook
+## Test
 
 ```bash
-uv run jupyter notebook
+make test
 ```
+
+## API
+
+All `/items` routes require an `Authorization: Bearer <DATASTORE_TOKEN>` header.
+
+- `POST /items` - append a document. Body `{namespace, key, payload}`.
+- `GET /items/{namespace}` - list a namespace, newest first. Optional `?key=` and `?limit=`.
+- `GET /items/{namespace}/{key}` - newest document for a key, or 404.
+- `DELETE /items/{namespace}/{key}` - delete every document for a key.
 
 ## Commands
 
