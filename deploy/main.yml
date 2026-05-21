@@ -231,7 +231,8 @@ spec:
         - name: ${NAME}
           image: ${IMAGE}
           # The image is sideloaded into containerd by CI; never pull
-          # it. The SHA-pinned local tag has no registry to pull from.
+          # it. The ref is ghcr.io-shaped only so kubelet's lookup
+          # matches the imported ref - nothing is pushed there.
           imagePullPolicy: IfNotPresent
           resources:
             requests:

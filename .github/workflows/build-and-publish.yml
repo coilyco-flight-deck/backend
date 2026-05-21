@@ -37,14 +37,19 @@ jobs:
           use-cache: "true"
           hostname: github-actions-${{ github.run_id }}
       # Build the image, save it to a tarball, pipe it over tailscale
-      # ssh into kai-server's containerd, then roll the deployment to
-      # the SHA-pinned ref. The tag is local-only (no registry prefix)
-      # and non-latest, so kubelet's IfNotPresent lookup matches the
-      # ref containerd stored on import - no pull, no imagePullSecret.
+      # ssh into kai-server's containerd, then roll the deployment.
+      #
+      # The ref is fully qualified (ghcr.io/...) even though nothing is
+      # ever pushed to a registry. kubelet canonicalizes a bare name to
+      # docker.io/library/<name>, which would not match the ref
+      # containerd stored on import - the lookup misses and kubelet
+      # falls through to a real docker.io pull that 404s. A fully
+      # qualified ref is a no-op under canonicalization, so the
+      # IfNotPresent lookup hits the sideloaded image. See repo-recall#219.
       - name: Build, ship, roll
         run: |
           set -euo pipefail
-          IMAGE=coilysiren-backend:${{ github.sha }}
+          IMAGE=ghcr.io/coilysiren/coilysiren-backend:${{ github.sha }}
           name=coilysiren-backend make .build-docker
           docker tag coilysiren-backend:latest "$IMAGE"
           docker save "$IMAGE" | \
