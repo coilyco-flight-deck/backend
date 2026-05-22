@@ -42,10 +42,11 @@ def test_main_mounts_every_mode():
 
 
 def test_mcp_endpoint_mounted():
+    # The MCP server lives on its own carrier app, off the main middleware stack.
     from backend import main
 
-    paths = {route.path for route in main.app.routes}
-    assert "/mcp" in paths
+    carrier_paths = {getattr(r, "path", "") for r in main._mcp_carrier.routes}
+    assert any(p.startswith("/mcp") for p in carrier_paths)
 
 
 def test_health_route_is_unauthed():
