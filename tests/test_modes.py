@@ -188,8 +188,8 @@ def test_agent_channel_new_id_shape():
 
 
 def test_agent_channel_id_alphabet_is_unambiguous():
-    # Dictatable: no I/L/O/0/1 to mishear.
-    for bad in "ILO01":
+    # Dictatable: no visual (I/L/O/0/1) or phonetic (N/2/3) collisions.
+    for bad in "ILO01N23":
         assert bad not in agent_channel._ID_ALPHABET
 
 

@@ -32,9 +32,9 @@ router = fastapi.APIRouter(
 # Tailnet-internal base. The backend answers as host `api` via its ts sidecar.
 _BASE_URL = "http://api"
 
-# 4-char ids. Alphabet drops I/L/O/0/1 so a dictated id is unambiguous.
-# 30^4 = 810k channels; channels are pruned, this is never close to full.
-_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+# 4-char dictatable ids. Alphabet per agentic-os docs/dictatable-id-alphabet.md.
+# 28^4 = 614k channels; channels are pruned, this is never close to full.
+_ID_ALPHABET = "ABCDEFGHJKMPQRSTUVWXYZ456789"
 _ID_LEN = 4
 
 _SCHEMA = """
