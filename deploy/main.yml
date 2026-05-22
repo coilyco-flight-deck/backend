@@ -293,8 +293,9 @@ spec:
         resources:
           requests:
             # Ambient KV store of small JSON docs - single-digit MB in
-            # practice. 1Gi is already generous.
-            storage: 1Gi
+            # practice. 5Gi matches the live PVC; volumeClaimTemplates is
+            # immutable, so this can't be lowered without recreating it.
+            storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
