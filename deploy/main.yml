@@ -92,7 +92,7 @@ rules:
     verbs: ["create"]
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["ts-state"]
+    resourceNames: ["ts-state", "ts-state-db"]
     verbs: ["get", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -131,6 +131,31 @@ spec:
       remoteRef:
         key: /coilysiren/backend/ts-authkey
 ---
+# Tailnet auth key for the db Pod's ts sidecar. Minted by
+# terraform/tailscale-devices/ in coilysiren/infrastructure under the
+# name backend-db; lands in SSM at /coilysiren/backend-db/ts-authkey.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: ts-authkey-db
+  namespace: ${NAME}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-parameter-store
+    kind: ClusterSecretStore
+  target:
+    name: ts-authkey-db
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        authkey: "{{ .authkey }}"
+  data:
+    - secretKey: authkey
+      remoteRef:
+        key: /coilysiren/backend-db/ts-authkey
+---
 # Headless Service for the Postgres StatefulSet's pod-DNS. The app reaches
 # the database at `${NAME}-db` inside the namespace. Same pattern as the
 # forgejo deploy in coilysiren/infrastructure.
@@ -151,6 +176,25 @@ spec:
   selector:
     app: ${NAME}-db
 ---
+# pg_hba.conf for the Postgres StatefulSet. Trust on the tailnet: the db
+# Pod joins the tailnet via the ts sidecar, and the Tailscale ACL already
+# limits tag:k8s nodes to user member devices, so a tailnet connection is
+# already an authenticated one. In-cluster traffic (the app, pod CIDR
+# 10.42.0.0/16) keeps password auth. See backend#79.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${NAME}-db-hba
+  namespace: ${NAME}
+data:
+  pg_hba.conf: |
+    local   all   all                         trust
+    host    all   all   127.0.0.1/32          trust
+    host    all   all   ::1/128               trust
+    host    all   all   100.64.0.0/10         trust
+    host    all   all   fd7a:115c:a1e0::/48   trust
+    host    all   all   10.42.0.0/16          scram-sha-256
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -167,11 +211,15 @@ spec:
       labels:
         app: ${NAME}-db
     spec:
+      serviceAccountName: ${NAME}-ts
       nodeSelector:
         kubernetes.io/hostname: kai-server
       containers:
         - name: postgres
           image: postgres:17
+          # Custom hba_file outside PGDATA - trust on the tailnet, password
+          # in-cluster. See the ${NAME}-db-hba ConfigMap and backend#79.
+          args: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
           ports:
             - name: postgres
               containerPort: 5432
@@ -197,6 +245,46 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: pg-hba
+              mountPath: /etc/postgresql
+              readOnly: true
+        # tailscale sidecar in kernel mode - puts the db Pod on the tailnet
+        # as `backend-db` so desktop DB clients reach it directly. Auth key
+        # minted by terraform/tailscale-devices/ under the name backend-db.
+        - name: ts
+          image: tailscale/tailscale:v1.78.1
+          env:
+            - name: TS_HOSTNAME
+              value: backend-db
+            - name: TS_KUBE_SECRET
+              value: ts-state-db
+            - name: TS_USERSPACE
+              value: "false"
+            - name: TS_AUTH_ONCE
+              value: "true"
+            - name: TS_EXTRA_ARGS
+              value: "--accept-dns=false"
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: ts-authkey-db
+                  key: authkey
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: pg-hba
+          configMap:
+            name: ${NAME}-db-hba
   volumeClaimTemplates:
     - metadata:
         name: data
