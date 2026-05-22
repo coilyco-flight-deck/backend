@@ -41,6 +41,13 @@ def test_main_mounts_every_mode():
     assert any(p.startswith("/queue/") for p in paths)
 
 
+def test_mcp_endpoint_mounted():
+    from backend import main
+
+    paths = {route.path for route in main.app.routes}
+    assert "/mcp" in paths
+
+
 def test_health_route_is_unauthed():
     # /health carries no dependency; every other mode router does.
     assert health.router.dependencies == []

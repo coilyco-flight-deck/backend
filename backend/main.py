@@ -12,6 +12,7 @@ import fastapi
 import opentelemetry.instrumentation.fastapi as otel_fastapi
 import structlog
 import structlog.processors
+from fastapi_mcp import FastApiMCP
 
 from . import application, modes
 
@@ -44,5 +45,13 @@ async def trigger_error():
 for _mode in modes.ALL_MODES:
     app.include_router(_mode.router)
 
+# agent-channel routes exposed as MCP tools at /mcp, tag-filtered to that surface.
+_mcp = FastApiMCP(
+    app,
+    name="agent-channel",
+    description="Cross-host agent coordination channels - see PROTOCOL.md in agentic-os-kai.",
+    include_tags=["agent-channel"],
+)
+_mcp.mount_http()
 
 otel_fastapi.FastAPIInstrumentor.instrument_app(app)

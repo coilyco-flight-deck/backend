@@ -24,7 +24,10 @@ from .. import datastore
 
 MODE_NAME = "agent-channel"
 
-router = fastapi.APIRouter(dependencies=[fastapi.Depends(datastore.require_token)])
+router = fastapi.APIRouter(
+    tags=["agent-channel"],
+    dependencies=[fastapi.Depends(datastore.require_token)],
+)
 
 # Tailnet-internal base. The backend answers as host `api` via its ts sidecar.
 _BASE_URL = "http://api"
