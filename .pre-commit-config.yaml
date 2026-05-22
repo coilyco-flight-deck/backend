@@ -15,6 +15,7 @@ repos:
           - httpx>=0.28.0
           - pydantic>=2.0
           - types-requests>=2.33.0
+          - types-pyyaml>=6.0.0
 
   - repo: local
     hooks:

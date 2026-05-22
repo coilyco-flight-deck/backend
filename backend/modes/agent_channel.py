@@ -18,6 +18,7 @@ import typing
 import asyncpg
 import fastapi
 import pydantic
+import yaml
 
 from .. import datastore
 
@@ -155,6 +156,95 @@ async def _load_channel(pool: asyncpg.Pool, cid: str) -> asyncpg.Record:
     return record
 
 
+# --- content negotiation for the onboarding view ---------------------------
+
+_FORMAT_ALIASES = {
+    "json": "json",
+    "yaml": "yaml",
+    "yml": "yaml",
+    "markdown": "markdown",
+    "md": "markdown",
+}
+
+
+def _pick_format(explicit: str | None, accept: str) -> str:
+    """Choose json / yaml / markdown from a ?format= override or the Accept header."""
+    if explicit:
+        return _FORMAT_ALIASES.get(explicit.strip().lower(), "json")
+    accept = accept.lower()
+    if "yaml" in accept:
+        return "yaml"
+    if "markdown" in accept:
+        return "markdown"
+    return "json"
+
+
+def _md_scalar(value: typing.Any) -> str:
+    if value is None:
+        return "_(none)_"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value).replace("\n", " ").strip()
+
+
+def _md_lines(value: typing.Any, indent: int = 0) -> list[str]:
+    """Render arbitrary JSON-ish data as an indented markdown bullet list."""
+    pad = "  " * indent
+    lines: list[str] = []
+    if isinstance(value, dict):
+        for key, val in value.items():
+            if isinstance(val, (dict, list)) and val:
+                lines.append(f"{pad}- **{key}**:")
+                lines.extend(_md_lines(val, indent + 1))
+            else:
+                lines.append(f"{pad}- **{key}**: {_md_scalar(val)}")
+    elif isinstance(value, list):
+        for item in value:
+            if isinstance(item, (dict, list)) and item:
+                lines.append(f"{pad}-")
+                lines.extend(_md_lines(item, indent + 1))
+            else:
+                lines.append(f"{pad}- {_md_scalar(item)}")
+    else:
+        lines.append(f"{pad}- {_md_scalar(value)}")
+    return lines
+
+
+def _channel_markdown(data: dict[str, typing.Any]) -> str:
+    """Render the onboarding view as a human-readable markdown document."""
+    ch = data["channel"]
+    out: list[str] = [f"# Agent Channel {ch['id']}", ""]
+    out.append(f"**{ch['title']}**" if ch.get("title") else "_(untitled channel)_")
+    out += [
+        "",
+        f"- created by `{ch.get('created_by') or '(unknown)'}`",
+        f"- created at {ch['created_at']}",
+        f"- status: {'closed at ' + ch['closed_at'] if ch.get('closed_at') else 'open'}",
+        f"- url: {ch['url']}",
+        "",
+        "## Onboarding",
+        "",
+        str(data.get("onboarding", "")),
+        "",
+        "## How to take part",
+        "",
+    ]
+    out += _md_lines(data.get("participate", {}))
+    out += ["", "## Current state", ""]
+    state = data.get("state")
+    out += _md_lines(state) if state else ["_No state event yet._"]
+    out += ["", "## Recent events", ""]
+    events = data.get("recent_events") or []
+    if not events:
+        out.append("_No events yet._")
+    for ev in events:
+        author = ev.get("author") or "(no author)"
+        out.append(f"### #{ev['id']} - {ev['kind']} - {author} - {ev['created_at']}")
+        out += _md_lines(ev.get("payload", {}))
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
+
+
 @router.post("/agent-channel")
 async def create_channel(body: ChannelCreate) -> dict[str, typing.Any]:
     """Create a channel with a fresh 4-char id. Returns the channel and its URL."""
@@ -194,9 +284,18 @@ async def list_channels(
     return [_channel(r) for r in records]
 
 
-@router.get("/agent-channel/{channel_id}")
-async def get_channel(channel_id: str) -> dict[str, typing.Any]:
-    """Self-describing onboarding view: prose, channel meta, latest state, recent events."""
+@router.get("/agent-channel/{channel_id}", response_model=None)
+async def get_channel(
+    channel_id: str,
+    request: fastapi.Request,
+    format: str | None = None,
+) -> fastapi.Response | dict[str, typing.Any]:
+    """Self-describing onboarding view: prose, channel meta, latest state, recent events.
+
+    Content-negotiates the response: JSON by default, YAML for an `application/yaml`
+    Accept header, Markdown for `text/markdown`. A `?format=json|yaml|markdown` query
+    param overrides the Accept header.
+    """
     cid = _norm_id(channel_id)
     pool = datastore.require_pool()
     channel = await _load_channel(pool, cid)
@@ -210,7 +309,7 @@ async def get_channel(channel_id: str) -> dict[str, typing.Any]:
         "ORDER BY created_at DESC LIMIT 20",
         cid,
     )
-    return {
+    data: dict[str, typing.Any] = {
         "channel": _channel(channel),
         "onboarding": _ONBOARDING,
         "participate": {
@@ -219,12 +318,23 @@ async def get_channel(channel_id: str) -> dict[str, typing.Any]:
             "read_events": f"GET {_channel_url(cid)}/events?kind=<kind>&limit=<n>",
             "append_event": f"POST {_channel_url(cid)}/event "
             '{"kind": "...", "author": "...", "payload": {...}}',
+            "formats": f"GET {_channel_url(cid)}?format=json|yaml|markdown "
+            "(or send a matching Accept header)",
             "auth": "Authorization: Bearer <token> - from SSM /coilysiren/backend/datastore-token",
             "your_name": "coily agent-name",
         },
         "state": _event(state)["payload"] if state else None,
         "recent_events": [_event(r) for r in recent],
     }
+    chosen = _pick_format(format, request.headers.get("accept", ""))
+    if chosen == "yaml":
+        return fastapi.Response(
+            yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+            media_type="application/yaml",
+        )
+    if chosen == "markdown":
+        return fastapi.Response(_channel_markdown(data), media_type="text/markdown")
+    return data
 
 
 @router.get("/agent-channel/{channel_id}/state")

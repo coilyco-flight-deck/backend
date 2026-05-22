@@ -214,6 +214,51 @@ def test_agent_channel_url_shape():
     assert agent_channel._channel_url("ABCD") == "http://api/agent-channel/ABCD"
 
 
+def test_agent_channel_pick_format_explicit_overrides_accept():
+    assert agent_channel._pick_format("yaml", "text/markdown") == "yaml"
+    assert agent_channel._pick_format("md", "") == "markdown"
+    assert agent_channel._pick_format("json", "application/yaml") == "json"
+    assert agent_channel._pick_format("nonsense", "") == "json"
+
+
+def test_agent_channel_pick_format_from_accept_header():
+    assert agent_channel._pick_format(None, "application/yaml") == "yaml"
+    assert agent_channel._pick_format(None, "text/markdown") == "markdown"
+    assert agent_channel._pick_format(None, "application/json") == "json"
+    assert agent_channel._pick_format(None, "") == "json"
+
+
+def test_agent_channel_markdown_render():
+    data = {
+        "channel": {
+            "id": "VHGC",
+            "title": "Test channel",
+            "created_by": "claude-x",
+            "created_at": "2026-05-22T10:00:00+00:00",
+            "closed_at": None,
+            "url": "http://api/agent-channel/VHGC",
+        },
+        "onboarding": "welcome",
+        "participate": {"read_this": "GET ..."},
+        "state": {"mission": "do it", "concepts": [{"id": "k3s-health", "status": "proposed"}]},
+        "recent_events": [
+            {
+                "id": 1,
+                "kind": "state",
+                "author": "claude-x",
+                "created_at": "2026-05-22T10:00:00+00:00",
+                "payload": {"a": 1},
+            }
+        ],
+    }
+    md = agent_channel._channel_markdown(data)
+    assert md.startswith("# Agent Channel VHGC")
+    assert "## Current state" in md
+    assert "k3s-health" in md
+    assert "## Recent events" in md
+    assert "#1 - state - claude-x" in md
+
+
 # --- file mode temp dir ----------------------------------------------------
 
 
