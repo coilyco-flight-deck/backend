@@ -10,11 +10,20 @@ Adding a mode is a router plus a sentinel record - nothing else.
 Design: coilysiren/backend#77.
 """
 
-from . import document, file, health, queue, sql
+from . import agent_channel, document, file, health, queue, sql
 
 # Ordered: health first so its sentinel lands before anything reads it.
-ALL_MODES = [health, document, queue, sql, file]
+ALL_MODES = [health, document, queue, sql, file, agent_channel]
 
 MODE_NAMES = [m.MODE_NAME for m in ALL_MODES]
 
-__all__ = ["ALL_MODES", "MODE_NAMES", "document", "file", "health", "queue", "sql"]
+__all__ = [
+    "ALL_MODES",
+    "MODE_NAMES",
+    "agent_channel",
+    "document",
+    "file",
+    "health",
+    "queue",
+    "sql",
+]

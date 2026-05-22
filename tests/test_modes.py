@@ -12,7 +12,7 @@ import pydantic
 import pytest
 
 from backend import modes
-from backend.modes import document, file, health, queue, sql
+from backend.modes import agent_channel, document, file, health, queue, sql
 
 # --- router registration ---------------------------------------------------
 
@@ -25,7 +25,7 @@ def test_all_modes_expose_router_and_init():
 
 
 def test_mode_names_match_modules():
-    assert modes.MODE_NAMES == ["health", "document", "queue", "sql", "file"]
+    assert modes.MODE_NAMES == ["health", "document", "queue", "sql", "file", "agent-channel"]
 
 
 def test_main_mounts_every_mode():
@@ -37,13 +37,14 @@ def test_main_mounts_every_mode():
     assert "/document" in paths
     assert "/sql/tables" in paths
     assert "/files/temp" in paths
+    assert "/agent-channel" in paths
     assert any(p.startswith("/queue/") for p in paths)
 
 
 def test_health_route_is_unauthed():
     # /health carries no dependency; every other mode router does.
     assert health.router.dependencies == []
-    for mode in (document, queue, sql, file):
+    for mode in (document, queue, sql, file, agent_channel):
         assert len(mode.router.dependencies) == 1
 
 
@@ -166,6 +167,51 @@ def test_document_create_requires_namespace_and_key():
         document.DocumentCreate(namespace="ns", key="", payload={})
     ok = document.DocumentCreate(namespace="ns", key="k", payload={"a": 1})
     assert ok.payload == {"a": 1}
+
+
+# --- agent-channel id + body validation ------------------------------------
+
+
+def test_agent_channel_new_id_shape():
+    for _ in range(200):
+        cid = agent_channel._new_id()
+        assert len(cid) == agent_channel._ID_LEN
+        assert all(c in agent_channel._ID_ALPHABET for c in cid)
+
+
+def test_agent_channel_id_alphabet_is_unambiguous():
+    # Dictatable: no I/L/O/0/1 to mishear.
+    for bad in "ILO01":
+        assert bad not in agent_channel._ID_ALPHABET
+
+
+def test_agent_channel_norm_id_uppercases_valid():
+    valid = agent_channel._new_id().lower()
+    assert agent_channel._norm_id(valid) == valid.upper()
+    assert agent_channel._norm_id(f"  {valid}  ") == valid.upper()
+
+
+@pytest.mark.parametrize("bad", ["", "ABC", "ABCDE", "AB1D", "AB-D", "abci"])
+def test_agent_channel_norm_id_rejects_malformed(bad):
+    with pytest.raises(fastapi.HTTPException) as exc:
+        agent_channel._norm_id(bad)
+    assert exc.value.status_code == 404
+
+
+def test_agent_channel_event_requires_kind():
+    with pytest.raises(pydantic.ValidationError):
+        agent_channel.EventCreate(kind="", author="a", payload={})
+    ok = agent_channel.EventCreate(kind="state", author="claude-x", payload={"a": 1})
+    assert ok.kind == "state"
+
+
+def test_agent_channel_create_defaults_are_empty():
+    body = agent_channel.ChannelCreate()
+    assert body.title == "" and body.created_by == ""
+
+
+def test_agent_channel_url_shape():
+    assert agent_channel._channel_url("ABCD") == "http://api/agent-channel/ABCD"
 
 
 # --- file mode temp dir ----------------------------------------------------
