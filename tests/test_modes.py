@@ -240,6 +240,7 @@ def test_agent_channel_markdown_render():
         },
         "onboarding": "welcome",
         "participate": {"read_this": "GET ..."},
+        "spec": {"mission": "ship it", "rules": ["no docker for k3s"]},
         "state": {"mission": "do it", "concepts": [{"id": "k3s-health", "status": "proposed"}]},
         "recent_events": [
             {
@@ -253,6 +254,8 @@ def test_agent_channel_markdown_render():
     }
     md = agent_channel._channel_markdown(data)
     assert md.startswith("# Agent Channel VHGC")
+    assert "## Charter" in md
+    assert "no docker for k3s" in md
     assert "## Current state" in md
     assert "k3s-health" in md
     assert "## Recent events" in md

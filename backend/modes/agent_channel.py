@@ -230,6 +230,9 @@ def _channel_markdown(data: dict[str, typing.Any]) -> str:
         "",
     ]
     out += _md_lines(data.get("participate", {}))
+    out += ["", "## Charter", ""]
+    spec = data.get("spec")
+    out += _md_lines(spec) if spec else ["_No spec event yet._"]
     out += ["", "## Current state", ""]
     state = data.get("state")
     out += _md_lines(state) if state else ["_No state event yet._"]
@@ -304,6 +307,11 @@ async def get_channel(
         "ORDER BY created_at DESC LIMIT 1",
         cid,
     )
+    spec = await pool.fetchrow(
+        "SELECT * FROM agent_channel_events WHERE channel_id = $1 AND kind = 'spec' "
+        "ORDER BY created_at DESC LIMIT 1",
+        cid,
+    )
     recent = await pool.fetch(
         "SELECT * FROM agent_channel_events WHERE channel_id = $1 "
         "ORDER BY created_at DESC LIMIT 20",
@@ -314,6 +322,7 @@ async def get_channel(
         "onboarding": _ONBOARDING,
         "participate": {
             "read_this": f"GET {_channel_url(cid)}",
+            "read_spec": f"GET {_channel_url(cid)}/spec",
             "read_state": f"GET {_channel_url(cid)}/state",
             "read_events": f"GET {_channel_url(cid)}/events?kind=<kind>&limit=<n>",
             "append_event": f"POST {_channel_url(cid)}/event "
@@ -323,6 +332,7 @@ async def get_channel(
             "auth": "Authorization: Bearer <token> - from SSM /coilysiren/backend/datastore-token",
             "your_name": "coily agent-name",
         },
+        "spec": _event(spec)["payload"] if spec else None,
         "state": _event(state)["payload"] if state else None,
         "recent_events": [_event(r) for r in recent],
     }
@@ -350,6 +360,22 @@ async def get_state(channel_id: str) -> dict[str, typing.Any]:
     )
     if record is None:
         raise fastapi.HTTPException(status_code=404, detail="channel has no state event yet")
+    return _event(record)["payload"]
+
+
+@router.get("/agent-channel/{channel_id}/spec")
+async def get_spec(channel_id: str) -> dict[str, typing.Any]:
+    """Return the newest `spec` event's payload (the channel charter), or 404."""
+    cid = _norm_id(channel_id)
+    pool = datastore.require_pool()
+    await _load_channel(pool, cid)
+    record = await pool.fetchrow(
+        "SELECT * FROM agent_channel_events WHERE channel_id = $1 AND kind = 'spec' "
+        "ORDER BY created_at DESC LIMIT 1",
+        cid,
+    )
+    if record is None:
+        raise fastapi.HTTPException(status_code=404, detail="channel has no spec event yet")
     return _event(record)["payload"]
 
 
