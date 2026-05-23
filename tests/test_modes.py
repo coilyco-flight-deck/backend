@@ -177,97 +177,20 @@ def test_document_create_requires_namespace_and_key():
     assert ok.payload == {"a": 1}
 
 
-# --- agent-channel id + body validation ------------------------------------
+# --- agent-channel mount shape ---------------------------------------------
+# Detailed router + ids + models + onboarding tests live in
+# coilysiren/otel-a2a-relay's channels/tests/. Backend only validates that
+# the shim wires the package into this app.
 
 
-def test_agent_channel_new_id_shape():
-    for _ in range(200):
-        cid = agent_channel._new_id()
-        assert len(cid) == agent_channel._ID_LEN
-        assert all(c in agent_channel._ID_ALPHABET for c in cid)
+def test_agent_channel_mode_constants_match_package():
+    from otel_a2a_relay_channels import MODE_NAME as PKG_MODE_NAME
+
+    assert agent_channel.MODE_NAME == PKG_MODE_NAME == "agent-channel"
 
 
-def test_agent_channel_id_alphabet_is_unambiguous():
-    # Dictatable: no visual (I/L/O/0/1) or phonetic (N/2/3) collisions.
-    for bad in "ILO01N23":
-        assert bad not in agent_channel._ID_ALPHABET
-
-
-def test_agent_channel_norm_id_uppercases_valid():
-    valid = agent_channel._new_id().lower()
-    assert agent_channel._norm_id(valid) == valid.upper()
-    assert agent_channel._norm_id(f"  {valid}  ") == valid.upper()
-
-
-@pytest.mark.parametrize("bad", ["", "ABC", "ABCDE", "AB1D", "AB-D", "abci"])
-def test_agent_channel_norm_id_rejects_malformed(bad):
-    with pytest.raises(fastapi.HTTPException) as exc:
-        agent_channel._norm_id(bad)
-    assert exc.value.status_code == 404
-
-
-def test_agent_channel_event_requires_kind():
-    with pytest.raises(pydantic.ValidationError):
-        agent_channel.EventCreate(kind="", author="a", payload={})
-    ok = agent_channel.EventCreate(kind="state", author="claude-x", payload={"a": 1})
-    assert ok.kind == "state"
-
-
-def test_agent_channel_create_defaults_are_empty():
-    body = agent_channel.ChannelCreate()
-    assert body.title == "" and body.created_by == ""
-
-
-def test_agent_channel_url_shape():
-    assert agent_channel._channel_url("ABCD") == "http://api/agent-channel/ABCD"
-
-
-def test_agent_channel_pick_format_explicit_overrides_accept():
-    assert agent_channel._pick_format("yaml", "text/markdown") == "yaml"
-    assert agent_channel._pick_format("md", "") == "markdown"
-    assert agent_channel._pick_format("json", "application/yaml") == "json"
-    assert agent_channel._pick_format("nonsense", "") == "json"
-
-
-def test_agent_channel_pick_format_from_accept_header():
-    assert agent_channel._pick_format(None, "application/yaml") == "yaml"
-    assert agent_channel._pick_format(None, "text/markdown") == "markdown"
-    assert agent_channel._pick_format(None, "application/json") == "json"
-    assert agent_channel._pick_format(None, "") == "json"
-
-
-def test_agent_channel_markdown_render():
-    data = {
-        "channel": {
-            "id": "VHGC",
-            "title": "Test channel",
-            "created_by": "claude-x",
-            "created_at": "2026-05-22T10:00:00+00:00",
-            "closed_at": None,
-            "url": "http://api/agent-channel/VHGC",
-        },
-        "onboarding": "welcome",
-        "participate": {"read_this": "GET ..."},
-        "spec": {"mission": "ship it", "rules": ["no docker for k3s"]},
-        "state": {"mission": "do it", "concepts": [{"id": "k3s-health", "status": "proposed"}]},
-        "recent_events": [
-            {
-                "id": 1,
-                "kind": "state",
-                "author": "claude-x",
-                "created_at": "2026-05-22T10:00:00+00:00",
-                "payload": {"a": 1},
-            }
-        ],
-    }
-    md = agent_channel._channel_markdown(data)
-    assert md.startswith("# Agent Channel VHGC")
-    assert "## Charter" in md
-    assert "no docker for k3s" in md
-    assert "## Current state" in md
-    assert "k3s-health" in md
-    assert "## Recent events" in md
-    assert "#1 - state - claude-x" in md
+def test_agent_channel_base_url_is_tailnet():
+    assert agent_channel._BASE_URL == "http://api"
 
 
 # --- file mode temp dir ----------------------------------------------------

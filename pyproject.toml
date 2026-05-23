@@ -20,7 +20,11 @@ dependencies = [
   "opentelemetry-api>=1.41.0,<2.0.0",
   "sentry-sdk[fastapi]>=2.58.0,<3.0.0",
   "opentelemetry-instrumentation-fastapi>=0.62b0,<0.63",
+  "otel-a2a-relay-channels",
 ]
+
+[tool.uv.sources]
+otel-a2a-relay-channels = { git = "https://github.com/coilysiren/otel-a2a-relay.git", subdirectory = "channels" }
 
 [dependency-groups]
 dev = [

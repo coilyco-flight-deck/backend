@@ -170,6 +170,7 @@ dependencies = [
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "otel-a2a-relay-channels" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -201,6 +202,7 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.41.0,<2.0.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.62b0,<0.63" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.62b0,<0.63" },
+    { name = "otel-a2a-relay-channels", git = "https://github.com/coilysiren/otel-a2a-relay.git?subdirectory=channels" },
     { name = "python-dotenv", specifier = ">=1.2.2,<2.0.0" },
     { name = "pyyaml", specifier = ">=6.0.3,<7.0.0" },
     { name = "requests", specifier = ">=2.32.0,<3.0.0" },
@@ -1178,6 +1180,30 @@ wheels = [
 ]
 
 [[package]]
+name = "openinference-instrumentation"
+version = "0.1.52"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "openinference-semantic-conventions" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/be/0d/10f658e2a7738a55c7de9717d07cfbb40537f2fc620c94718bd9e1b21c4a/openinference_instrumentation-0.1.52.tar.gz", hash = "sha256:0fce0f390f706ca37f385ee64f19df8b290bf9e43e9a701c97377d2ad2745807", size = 33307, upload-time = "2026-05-22T21:10:45.943Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/f2/c730507f42a538e76a12fc315b1e65e08c9d0344f6eb448189a086724120/openinference_instrumentation-0.1.52-py3-none-any.whl", hash = "sha256:98f668a5ceaf057eeee82272e855160131849766b5ffe3266cb1c229d9dfe561", size = 40508, upload-time = "2026-05-22T21:10:44.152Z" },
+]
+
+[[package]]
+name = "openinference-semantic-conventions"
+version = "0.1.30"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/51/8ba1182ee86fc79793d5ff2d11e7fdcda10ded2d01f3e46ca6fcf0568213/openinference_semantic_conventions-0.1.30.tar.gz", hash = "sha256:81fece76e09c83789e35c393b8b30523481eeabf1008745b955631a53e3221d9", size = 13391, upload-time = "2026-05-22T21:10:44.065Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/76/5b7e78cf0de38589b821bbe8e9c29c59a6e76edfb980488d0854cbb90f7c/openinference_semantic_conventions-0.1.30-py3-none-any.whl", hash = "sha256:36d946d3f95f699b7c4b12324ae9c1f02d6c7750df11eece56aa159cff430b3d", size = 10911, upload-time = "2026-05-22T21:10:43.04Z" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.41.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1358,6 +1384,32 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9b/e7/830f7c57135158eb8a8efd3f94ab191a89e3b8a49bed314a35ee501da3f2/opentelemetry_util_http-0.62b0.tar.gz", hash = "sha256:a62e4b19b8a432c0de657f167dee3455516136bb9c6ed463ca8063019970d835", size = 11393, upload-time = "2026-04-09T14:40:59.442Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/7f/5c1b7d4385852b9e5eacd4e7f9d8b565d3d351d17463b24916ad098adf1a/opentelemetry_util_http-0.62b0-py3-none-any.whl", hash = "sha256:c20462808d8cc95b69b0dc4a3e02a9d36beb663347e96c931f51ffd78bd318ad", size = 9294, upload-time = "2026-04-09T14:40:19.014Z" },
+]
+
+[[package]]
+name = "otel-a2a-relay-channels"
+version = "0.1.0"
+source = { git = "https://github.com/coilysiren/otel-a2a-relay.git?subdirectory=channels#8e193bed6c8d4e3b4096d512093d834ab802be68" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "opentelemetry-api" },
+    { name = "otel-a2a-relay-core" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[[package]]
+name = "otel-a2a-relay-core"
+version = "0.3.0"
+source = { git = "https://github.com/coilysiren/otel-a2a-relay.git?subdirectory=core#8e193bed6c8d4e3b4096d512093d834ab802be68" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "openinference-instrumentation" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [[package]]
