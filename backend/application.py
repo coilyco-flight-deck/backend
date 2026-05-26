@@ -144,34 +144,14 @@ async def _lifespan(_app: fastapi.FastAPI):
 def init() -> tuple[fastapi.FastAPI, slowapi.Limiter]:
     app = fastapi.FastAPI(lifespan=_lifespan)
 
-    ####################
-    # START MIDDLEWARE #
-    ####################
-
-    # This next section is for middleware. They are numbered to help explain
-    # The order in which they are executed.
-    #
-    # The middleware is executed "top to bottom" on the way in,
-    # and "bottom to top" on the way out.
-    #
-    # See example here:
-    # https://github.com/encode/starlette/issues/479#issuecomment-1595113897
-
     app.add_middleware(ErrorHandlingMiddleware, timeout=30)
 
     app.add_middleware(OpenTelemetryMiddleware)
 
-    # CORS stays permissive: the service is tailnet-internal now, reachable
-    # only through the in-Pod Tailscale sidecar. No public ingress, so there
-    # is no public origin list and no TrustedHost host allowlist to maintain.
+    # CORS permissive: tailnet-internal service, no public ingress.
     app.add_middleware(cors.CORSMiddleware, allow_origins=["*"])
 
-    ##################
-    # END MIDDLEWARE #
-    ##################
-
-    # Configure rate limiting
-    # docs: https://slowapi.readthedocs.io/en/latest/
+    # slowapi rate limiting. https://slowapi.readthedocs.io/en/latest/
     # pylint: disable=protected-access
     limiter = slowapi.Limiter(key_func=slowapi.util.get_remote_address)
     app.state.limiter = limiter

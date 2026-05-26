@@ -66,9 +66,8 @@ def test_explode_route_captures_exception_to_sentry():
     assert response.status_code == 500
     assert response.json()["detail"] == "internal server error"
 
-    # The forced ZeroDivisionError must have travelled the full SDK path.
-    # Sentry's Starlette/FastAPI integrations may also emit their own events,
-    # so assert presence rather than an exact count.
+    # Forced ZeroDivisionError must travel the full SDK path. Sentry integrations
+    # may emit extra events too, so assert presence rather than exact count.
     captured_types = {
         value["type"]
         for event in transport.events

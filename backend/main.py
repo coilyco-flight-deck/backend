@@ -61,9 +61,7 @@ async def trigger_error():
     return 1 / 0
 
 
-# Mount every mode's router. Each mode owns one table and a sentinel record;
-# adding a mode is a new module under backend/modes/ plus an entry in its
-# ALL_MODES list - nothing in this file changes.
+# Mount every mode's router. Each mode owns one table + sentinel record.
 for _mode in modes.ALL_MODES:
     app.include_router(_mode.router)
 

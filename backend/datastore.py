@@ -25,9 +25,8 @@ logger = structlog.get_logger()
 
 _pool: asyncpg.Pool | None = None
 
-# Shared sentinel registry. Each mode upserts one row on init describing the
-# shape of the records it stores - the ".keep-of-schemas" exemplar that makes
-# the framework self-documenting. GET /health returns every sentinel.
+# Shared sentinel registry: one row per mode describing its record shape.
+# GET /health returns every sentinel.
 _SENTINEL_SCHEMA = """
 CREATE TABLE IF NOT EXISTS sentinels (
     mode TEXT PRIMARY KEY,

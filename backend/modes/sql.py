@@ -27,9 +27,8 @@ MODE_NAME = "sql"
 
 router = fastapi.APIRouter(dependencies=[fastapi.Depends(datastore.require_token)])
 
-# Identifiers: lowercase letter, then up to 62 more lowercase/digit/underscore.
-# 63 total is Postgres's identifier length cap; prefixing with `sql_` keeps the
-# created table name (sql_<name>) inside the 63-byte limit too.
+# 63-char identifier matches Postgres's NAMEDATALEN-1 cap.
+# Leaves room for the sql_ prefix on the created table name.
 _IDENT_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 # Closed type allowlist. Anything outside this set is a 400. Mapped to the

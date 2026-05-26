@@ -177,10 +177,8 @@ def test_document_create_requires_namespace_and_key():
     assert ok.payload == {"a": 1}
 
 
-# --- agent-channel mount shape ---------------------------------------------
-# Detailed router + ids + models + onboarding tests live in
-# coilysiren/otel-a2a-relay's channels/tests/. Backend only validates that
-# the shim wires the package into this app.
+# agent-channel mount shape. Detailed tests live in otel-a2a-relay's channels/tests/.
+# Backend only validates that the shim wires the package into this app.
 
 
 def test_agent_channel_mode_constants_match_package():
