@@ -58,6 +58,3 @@ SSM Parameter Store and S3 are the primary services in use today.
 - **Medical follow-up reminders** — EventBridge rules for upcoming checkpoints
   (appointments, recovery milestones, multi-year plans) so they aren't carried in
   your head.
-- **"Where am I sleeping" log** — tiny endpoint you POST to from your phone each
-  night, written to S3. Cross-referenced against sleep duration would let you prove
-  location-vs-sleep-quality patterns with data instead of vibes.

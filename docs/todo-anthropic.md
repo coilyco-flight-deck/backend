@@ -58,6 +58,3 @@ API key shows up, several of these become easier.
 - **Daily "compress my day" briefing** — early-morning task that reads the previous
   day's journal + open TASKS.md + calendar, and produces a 3-block "what matters today"
   plan. Turns a vague intention to compress days into a ritual.
-- **AI SRE token-cost calculator** — given a description of an ops workflow, estimate
-  what an AI-SRE replacement would cost in tokens at scale and what it would replace.
-  Generates a concrete pitch artifact instead of hand-waving.

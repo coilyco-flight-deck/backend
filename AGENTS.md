@@ -21,6 +21,38 @@ Per the workspace "Default to proactive scheduling" rule: after pushing to `main
 
 Route every dev command through coily, which reads [`.coily/coily.yaml`](.coily/coily.yaml). The lockdown denies bare invocations of the underlying tools (`make`, `uv`, `npm`, `dotnet`, `docker`, `cargo`, etc.). Add new verbs to that file before invoking them.
 
+## Scope
+
+Backend-specific operating notes for agents. Workspace conventions live in `../AGENTS.md`.
+
+## Project shape
+
+FastAPI + Postgres modes framework. See [README.md](README.md) and [docs/FEATURES.md](docs/FEATURES.md).
+
+## Repo boundaries
+
+Internal-only service. Deploy config follows the canonical homelab rig, not this repo's docs.
+
+## Validation
+
+`coily exec test` runs the pytest suite. Pre-commit (`pre-commit run --all-files`) covers ruff, mypy, trufflehog, and the agentic-os documentation/catalog hooks.
+
+## Safety
+
+Bearer-token auth on every mode route except `/health`. Fails closed when `DATASTORE_TOKEN` is absent.
+
+## Cross-repo contracts
+
+`build-publish-deploy` workflows in other coilysiren repos POST CI status into this backend's `document` mode under namespace `ci-status`.
+
+## Release
+
+CI builds the image, `docker save`s it, streams to kai-server's k3s containerd, applies the manifest, rolls the deployment. No registry pull.
+
+## Agent rules
+
+Workspace defaults from `../AGENTS.md` apply. Repo-local additions are documented in the sections above.
+
 ## See also
 
 - [README.md](README.md) - human-facing intro.
