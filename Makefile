@@ -7,11 +7,12 @@ email ?= $(shell cat coily.yaml | yq e '.email')
 name ?= $(shell cat coily.yaml | yq e '.name')
 name-dashed ?= $(subst /,-,$(name))
 git-hash ?= $(shell git rev-parse HEAD)
-# Fully-qualified ref. CI builds this, docker-saves it, and sideloads it
-# into kai-server's containerd - nothing is pushed to a registry. The
-# ghcr.io prefix is only there so kubelet's canonicalization is a no-op
-# and its IfNotPresent lookup matches the imported ref (repo-recall#219).
-image-url ?= ghcr.io/coilysiren/$(name-dashed):$(git-hash)
+# Fully-qualified ref into the in-cluster registry. Forgejo Actions builds
+# this, pushes it over plain http (the runner's DinD carries
+# --insecure-registry=192.168.0.194:30500), and kai-server's containerd
+# pulls it via its registries.yaml insecure entry. See
+# coilysiren/infrastructure#168, #171.
+image-url ?= 192.168.0.194:30500/$(name-dashed):$(git-hash)
 
 echo:
 	echo $(image-url)
@@ -34,9 +35,9 @@ build-native: ## uv lock + uv sync.
 
 build-docker: .build-docker ## Build the docker image locally with BuildKit cache.
 
-# Apply the k8s manifest. The image roll itself is done by CI's
-# docker-save sideload (see .github/workflows/build-and-publish.yml);
-# this target is for applying structural changes to deploy/main.yml.
+# Apply the k8s manifest. The image roll itself is done by the Forgejo
+# Actions deploy job (.forgejo/workflows/build-publish-deploy.yml); this
+# target is for applying structural changes to deploy/main.yml.
 .deploy:
 	env \
 		NAME=$(name-dashed) \

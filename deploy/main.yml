@@ -3,10 +3,64 @@ kind: Namespace
 metadata:
   name: ${NAME}
 ---
-# No GHCR pull-secret. The image is built in CI, docker-saved, and
-# streamed into kai-server's k3s containerd over tailscale ssh (see
-# .github/workflows/build-and-publish.yml). The cluster never pulls
-# from a registry, so there is no imagePullSecret to sync.
+# Deployer ServiceAccount for the Forgejo Actions release pipeline. The CI
+# deploy job authenticates as this SA to roll the app Deployment over the
+# LAN (kubeconfig in the Forgejo Actions secret DEPLOY_KUBECONFIG on
+# coilysiren/backend, built from this SA's token Secret below). No tailnet
+# join, no SSH. See coilysiren/backend#25.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deployer
+  namespace: ${NAME}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: deployer
+  namespace: ${NAME}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/status"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deployer
+  namespace: ${NAME}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: deployer
+subjects:
+  - kind: ServiceAccount
+    name: deployer
+    namespace: ${NAME}
+---
+# Long-lived token for the deployer SA. Kubernetes populates token, ca.crt,
+# and namespace into this Secret; the DEPLOY_KUBECONFIG Forgejo secret is
+# built from its ca.crt + token. Regenerate the kubeconfig if rotated. The
+# token never lives in git. See coilysiren/backend#25.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: deployer-token
+  namespace: ${NAME}
+  annotations:
+    kubernetes.io/service-account.name: deployer
+type: kubernetes.io/service-account-token
+---
+# No pull-secret. The image is built by Forgejo Actions and pushed to the
+# in-cluster registry (192.168.0.194:30500, plain http). The app pod is
+# pinned to kai-server, whose containerd has the insecure-registry entry in
+# registries.yaml, so the pull lands there. See coilysiren/infrastructure#171.
 #
 # Postgres password for the ambient datastore. Backs both the Postgres
 # StatefulSet (POSTGRES_PASSWORD) and the app's asyncpg pool (PGPASSWORD).
@@ -321,10 +375,10 @@ spec:
       containers:
         - name: ${NAME}
           image: ${IMAGE}
-          # The image is sideloaded into containerd by CI; never pull
-          # it. The ref is ghcr.io-shaped only so kubelet's lookup
-          # matches the imported ref - nothing is pushed there.
-          imagePullPolicy: IfNotPresent
+          # Pulled from the in-cluster registry (192.168.0.194:30500) by
+          # kai-server's containerd over plain http. Always, so each rolled
+          # ${git-hash} tag is fetched fresh. See coilysiren/infrastructure#171.
+          imagePullPolicy: Always
           resources:
             requests:
               cpu: "100m"

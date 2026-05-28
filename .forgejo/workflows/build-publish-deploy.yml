@@ -1,0 +1,75 @@
+name: build-publish-deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run pytest
+
+  deploy:
+    runs-on: docker
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      # Build the image and push it to the in-cluster registry. The runner's
+      # DinD sidecar is the docker host (DOCKER_HOST=tcp://localhost:2375) and
+      # carries --insecure-registry=192.168.0.194:30500, so the plain-http
+      # push to the NodePort registry round-trips. No tailnet join, no GHCR,
+      # no docker-save sideload. See coilysiren/infrastructure#168, #171.
+      - name: Build and push
+        run: |
+          set -euo pipefail
+          IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
+          docker build \
+            --progress plain \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t "$IMAGE" \
+            .
+          docker push "$IMAGE"
+      # Roll the deployment over the LAN. The kubeconfig points at the k3s API
+      # on the LAN IP (192.168.0.194:6443, in the cert SANs) and authenticates
+      # as the deployer ServiceAccount (deploy/main.yml). The app pod is pinned
+      # to kai-server, where registries.yaml has the insecure entry, so the
+      # cluster-side pull of 192.168.0.194:30500/... lands on that node (#171).
+      - name: Roll deployment
+        env:
+          DEPLOY_KUBECONFIG: ${{ secrets.DEPLOY_KUBECONFIG }}
+        run: |
+          set -euo pipefail
+          IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
+          echo "$DEPLOY_KUBECONFIG" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl -n coilysiren-backend set image \
+            deploy/coilysiren-backend-app coilysiren-backend="$IMAGE"
+          kubectl -n coilysiren-backend rollout status \
+            deploy/coilysiren-backend-app --timeout=5m
+      # Write build/deploy status into the document mode. POSTs to the internal
+      # host `api` over the LAN-reachable in-cluster service. The Mac-side
+      # poller reads namespace=ci-status, key=<repo>@<commit>.
+      # See coilysiren/backend#65, coilysiren/backend#77.
+      - name: report status to datastore
+        if: always()
+        env:
+          DATASTORE_TOKEN: ${{ secrets.DATASTORE_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+          STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -fsS -X POST http://api/document \
+            -H "Authorization: Bearer $DATASTORE_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -nc \
+              --arg repo "$REPO" \
+              --arg commit "$COMMIT" \
+              --arg status "$STATUS" \
+              --arg run_url "$RUN_URL" \
+              '{namespace:"ci-status", key:($repo+"@"+$commit), payload:{repo:$repo, commit:$commit, status:$status, run_url:$run_url}}')"
