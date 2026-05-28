@@ -39,11 +39,32 @@ jobs:
           curl -fsSL -o /usr/local/bin/jq \
             https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64
           chmod +x /usr/local/bin/jq
-      # Build the image and push it to the in-cluster registry. The runner's
-      # DinD sidecar is the docker host (DOCKER_HOST=tcp://localhost:2375) and
-      # carries --insecure-registry=192.168.0.194:30500, so the plain-http
-      # push to the NodePort registry round-trips. No tailnet join, no GHCR,
-      # no docker-save sideload. See coilysiren/infrastructure#168, #171.
+      # The DinD sidecar shares the runner pod's netns and listens on :2375
+      # there, but the job container sits on a separate per-workflow docker
+      # bridge - so the inherited DOCKER_HOST=tcp://localhost:2375 points at
+      # the job container's own loopback, not dockerd. dockerd is reachable at
+      # the job container's default-route gateway (the pod netns). Probe
+      # candidates and pin the first that answers. See coilysiren/backend#26.
+      - name: Resolve docker host
+        run: |
+          set -euo pipefail
+          gw=$(node -e "const fs=require('fs');const l=(fs.readFileSync('/proc/net/route','utf8').split('\n').find(x=>x.split('\t')[1]==='00000000'))||'';const h=l.split(/\s+/)[2]||'';if(h){console.log(h.match(/../g).reverse().map(x=>parseInt(x,16)).join('.'))}" || true)
+          for h in "tcp://${gw}:2375" "${DOCKER_HOST:-}" tcp://localhost:2375 unix:///var/run/docker.sock; do
+            [ -z "$h" ] && continue
+            [ "$h" = "tcp://:2375" ] && continue
+            if docker -H "$h" info >/dev/null 2>&1; then
+              echo "docker daemon reachable at $h"
+              echo "DOCKER_HOST=$h" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "no docker daemon at $h"
+          done
+          echo "no reachable docker daemon" >&2
+          exit 1
+      # Build the image and push it to the in-cluster registry. The DinD
+      # sidecar carries --insecure-registry=192.168.0.194:30500, so the
+      # plain-http push to the NodePort registry round-trips. No tailnet join,
+      # no GHCR, no docker-save sideload. See coilysiren/infrastructure#168, #171.
       - name: Build and push
         run: |
           set -euo pipefail
