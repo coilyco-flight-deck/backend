@@ -36,5 +36,3 @@ catalog:
   lifecycle: production
   description: "Generic data-accessibility framework - internal FastAPI over Postgres, uniform modes for document, queue, sql, file, health."
   dependsOn: []
-  providesApis:
-    - modes-framework
