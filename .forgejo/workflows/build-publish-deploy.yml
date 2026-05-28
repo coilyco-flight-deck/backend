@@ -66,6 +66,11 @@ jobs:
       # plain-http push to the NodePort registry round-trips. No tailnet join,
       # no GHCR, no docker-save sideload. See coilysiren/infrastructure#168, #171.
       - name: Build and push
+        env:
+          # The static docker CLI ships no buildx plugin and defaults to the
+          # legacy builder, which rejects --progress. Route the build to the
+          # daemon's built-in BuildKit so --progress / inline cache work.
+          DOCKER_BUILDKIT: "1"
         run: |
           set -euo pipefail
           IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
