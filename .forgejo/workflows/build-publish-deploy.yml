@@ -19,6 +19,26 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
+      # The `docker` runner label resolves to node:20-bookworm, which ships
+      # git + curl but no docker CLI, kubectl, or jq. Pull them in as static
+      # binaries (apt-free, so no daemon postinst runs in the job container):
+      # docker talks to the DinD sidecar over DOCKER_HOST, kubectl rolls the
+      # deployment, jq builds the status payload.
+      - name: Install deploy tooling
+        run: |
+          set -euo pipefail
+          docker_cli_ver=$(curl -fsSL https://download.docker.com/linux/static/stable/x86_64/ \
+            | grep -oE 'docker-[0-9]+\.[0-9]+\.[0-9]+\.tgz' | sort -V | tail -1 \
+            | sed -E 's/^docker-(.*)\.tgz$/\1/')
+          curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${docker_cli_ver}.tgz" \
+            | tar -xz -C /tmp
+          install /tmp/docker/docker /usr/local/bin/docker
+          curl -fsSL -o /usr/local/bin/kubectl \
+            "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x /usr/local/bin/kubectl
+          curl -fsSL -o /usr/local/bin/jq \
+            https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64
+          chmod +x /usr/local/bin/jq
       # Build the image and push it to the in-cluster registry. The runner's
       # DinD sidecar is the docker host (DOCKER_HOST=tcp://localhost:2375) and
       # carries --insecure-registry=192.168.0.194:30500, so the plain-http
@@ -72,4 +92,5 @@ jobs:
               --arg commit "$COMMIT" \
               --arg status "$STATUS" \
               --arg run_url "$RUN_URL" \
-              '{namespace:"ci-status", key:($repo+"@"+$commit), payload:{repo:$repo, commit:$commit, status:$status, run_url:$run_url}}')"
+              '{namespace:"ci-status", key:($repo+"@"+$commit), payload:{repo:$repo, commit:$commit, status:$status, run_url:$run_url}}')" \
+            || echo "datastore status report failed (non-fatal)"
