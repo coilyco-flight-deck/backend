@@ -202,7 +202,7 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.41.0,<2.0.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.62b0,<0.63" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.62b0,<0.63" },
-    { name = "otel-a2a-relay-channels", git = "https://github.com/coilysiren/otel-a2a-relay.git?subdirectory=channels" },
+    { name = "otel-a2a-relay-channels", git = "https://github.com/coilyco-flight-deck/otel-a2a-relay.git?subdirectory=channels" },
     { name = "python-dotenv", specifier = ">=1.2.2,<2.0.0" },
     { name = "pyyaml", specifier = ">=6.0.3,<7.0.0" },
     { name = "requests", specifier = ">=2.32.0,<3.0.0" },
@@ -1389,7 +1389,7 @@ wheels = [
 [[package]]
 name = "otel-a2a-relay-channels"
 version = "0.1.0"
-source = { git = "https://github.com/coilysiren/otel-a2a-relay.git?subdirectory=channels#8e193bed6c8d4e3b4096d512093d834ab802be68" }
+source = { git = "https://github.com/coilyco-flight-deck/otel-a2a-relay.git?subdirectory=channels#8e193bed6c8d4e3b4096d512093d834ab802be68" }
 dependencies = [
     { name = "asyncpg" },
     { name = "fastapi" },
@@ -1402,7 +1402,7 @@ dependencies = [
 [[package]]
 name = "otel-a2a-relay-core"
 version = "0.3.0"
-source = { git = "https://github.com/coilysiren/otel-a2a-relay.git?subdirectory=core#8e193bed6c8d4e3b4096d512093d834ab802be68" }
+source = { git = "https://github.com/coilyco-flight-deck/otel-a2a-relay.git?subdirectory=core#8e193bed6c8d4e3b4096d512093d834ab802be68" }
 dependencies = [
     { name = "fastapi" },
     { name = "openinference-instrumentation" },

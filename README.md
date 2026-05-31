@@ -1,6 +1,6 @@
 # backend
 
-A generic data-accessibility framework. An internal operational backend with Postgres behind it, exposing a small set of uniform **modes**, each a FastAPI router with a generic endpoint and a self-documenting sentinel record. Internal-only - reachable on the tailnet via an in-Pod Tailscale sidecar, no public ingress. Design: [coilysiren/backend#77](https://github.com/coilysiren/backend/issues/77), [coilysiren/backend#65](https://github.com/coilysiren/backend/issues/65), [coilysiren/agentic-os-kai#657](https://github.com/coilysiren/agentic-os-kai/issues/657).
+A generic data-accessibility framework. An internal operational backend with Postgres behind it, exposing a small set of uniform **modes**, each a FastAPI router with a generic endpoint and a self-documenting sentinel record. Internal-only - reachable on the tailnet via an in-Pod Tailscale sidecar, no public ingress. Design: [coilysiren/backend#77](https://github.com/coilyco-flight-deck/backend/issues/77), [coilysiren/backend#65](https://github.com/coilyco-flight-deck/backend/issues/65), [coilysiren/agentic-os-kai#657](https://github.com/coilyco-bridge/agentic-os-kai/issues/657).
 
 Deploys to the k3s homelab via the canonical rig in [infrastructure/docs/k3s-deploy-notes.md](../infrastructure/docs/k3s-deploy-notes.md).
 
@@ -33,4 +33,4 @@ Install, run, and test instructions live in [docs/dev.md](docs/dev.md). Dev comm
 - [docs/dev.md](docs/dev.md) - local install, env, run, test.
 - [.coily/coily.yaml](.coily/coily.yaml) - allowlisted commands.
 
-Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilysiren/agentic-os-kai/issues/313).
+Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilyco-bridge/agentic-os-kai/issues/313).

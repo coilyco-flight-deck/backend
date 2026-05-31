@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-otel-a2a-relay-channels = { git = "https://github.com/coilysiren/otel-a2a-relay.git", subdirectory = "channels" }
+otel-a2a-relay-channels = { git = "https://github.com/coilyco-flight-deck/otel-a2a-relay.git", subdirectory = "channels" }
 
 [dependency-groups]
 dev = [
