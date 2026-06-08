@@ -19,11 +19,6 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
-      # The `docker` runner label resolves to node:20-bookworm, which ships
-      # git + curl but no docker CLI, kubectl, or jq. Pull them in as static
-      # binaries (apt-free, so no daemon postinst runs in the job container):
-      # docker talks to the DinD sidecar over DOCKER_HOST, kubectl rolls the
-      # deployment, jq builds the status payload.
       - name: Install deploy tooling
         run: |
           set -euo pipefail
@@ -39,12 +34,6 @@ jobs:
           curl -fsSL -o /usr/local/bin/jq \
             https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64
           chmod +x /usr/local/bin/jq
-      # The DinD sidecar shares the runner pod's netns and listens on :2375
-      # there, but the job container sits on a separate per-workflow docker
-      # bridge - so the inherited DOCKER_HOST=tcp://localhost:2375 points at
-      # the job container's own loopback, not dockerd. dockerd is reachable at
-      # the job container's default-route gateway (the pod netns). Probe
-      # candidates and pin the first that answers. See coilysiren/backend#26.
       - name: Resolve docker host
         run: |
           set -euo pipefail
@@ -61,24 +50,12 @@ jobs:
           done
           echo "no reachable docker daemon" >&2
           exit 1
-      # Build the image and push it to the in-cluster registry. The DinD
-      # sidecar carries --insecure-registry=192.168.0.194:30500, so the
-      # plain-http push to the NodePort registry round-trips. No tailnet join,
-      # no GHCR, no docker-save sideload. See coilysiren/infrastructure#168, #171.
-      # Use the legacy builder: the static docker CLI ships no buildx plugin,
-      # so BuildKit (--progress, inline cache) is unavailable. A plain build
-      # against the daemon is enough for this single image.
       - name: Build and push
         run: |
           set -euo pipefail
           IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
-      # Roll the deployment over the LAN. The kubeconfig points at the k3s API
-      # on the LAN IP (192.168.0.194:6443, in the cert SANs) and authenticates
-      # as the deployer ServiceAccount (deploy/main.yml). The app pod is pinned
-      # to kai-server, where registries.yaml has the insecure entry, so the
-      # cluster-side pull of 192.168.0.194:30500/... lands on that node (#171).
       - name: Roll deployment
         env:
           DEPLOY_KUBECONFIG: ${{ secrets.DEPLOY_KUBECONFIG }}
@@ -91,10 +68,6 @@ jobs:
             deploy/coilysiren-backend-app coilysiren-backend="$IMAGE"
           kubectl -n coilysiren-backend rollout status \
             deploy/coilysiren-backend-app --timeout=5m
-      # Write build/deploy status into the document mode. POSTs to the internal
-      # host `api` over the LAN-reachable in-cluster service. The Mac-side
-      # poller reads namespace=ci-status, key=<repo>@<commit>.
-      # See coilysiren/backend#65, coilysiren/backend#77.
       - name: report status to datastore
         if: always()
         env:

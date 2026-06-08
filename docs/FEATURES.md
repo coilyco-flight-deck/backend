@@ -36,9 +36,9 @@ A generic data-accessibility framework. An internal FastAPI service with Postgre
 ## Platform and deployment
 
 - **Container image** - Python 3.13 + uv multi-stage build.
-- **Registry-free deploy** - CI builds the image, `docker save`s it, and streams the tarball into kai-server's k3s containerd over a tailscale-ssh tunnel, then `set image` + rollout. No GHCR pull. Mirrors the galaxy-gen / repo-recall rig.
-- **Kubernetes manifests** - app Deployment, Postgres StatefulSet + 1Gi PVC, ClusterIP + headless DB Service, ExternalSecrets, an `emptyDir` temp tier for the file mode. No Ingress.
-- **Internal-only** - reachable on the tailnet through the in-Pod Tailscale sidecar at host `api`. No public ingress, no TLS, no TrustedHost allowlist. CORS stays permissive since the surface is tailnet-internal.
+- **In-cluster registry deploy** - the `build-publish-deploy` Forgejo Actions workflow builds the image, pushes it to the in-cluster registry over plain http, then `set image` + rollout. See [docs/deploy.md](deploy.md).
+- **Kubernetes manifests** - app Deployment, Postgres StatefulSet + 5Gi PVC, ClusterIP + headless DB Service, ExternalSecrets, an `emptyDir` temp tier for the file mode. No Ingress.
+- **Internal-only** - reachable on the tailnet through the in-Pod Tailscale sidecar at host `api`. No public ingress, no TLS, no TrustedHost allowlist.
 - **Secret sync** - Postgres password / datastore token / Sentry DSN / Tailscale authkey from AWS SSM, 1h refresh.
 - **Rate limiting** - slowapi, 10 req/s on `/`.
 
@@ -51,6 +51,7 @@ A generic data-accessibility framework. An internal FastAPI service with Postgre
 
 - [README.md](../README.md) - human-facing intro.
 - [AGENTS.md](../AGENTS.md) - agent-facing operating rules.
+- [docs/deploy.md](deploy.md) - deploy pipeline and cluster manifest walkthrough.
 - [.coily/coily.yaml](../.coily/coily.yaml) - allowlisted commands.
 
 Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilyco-bridge/agentic-os-kai/issues/313).

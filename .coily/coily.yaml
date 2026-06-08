@@ -26,8 +26,6 @@ commands:
     run: make test
     description: Run the pytest suite.
 
-# Catalog metadata for the cross-repo knowledge graph.
-# Schema: coilysiren/agentic-os-kai#420 (tracker).
 catalog:
   kind: Component
   type: service

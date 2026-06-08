@@ -68,3 +68,12 @@ packages = ["backend"]
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+# .pre-commit-config.yaml carries the agentic-os managed block's BEGIN/END
+# marker comments, which apply-agentic-os-hooks.py needs to find its block.
+# Those are generated structural markers, so the file is excluded rather than
+# stripped. Deploy YAML rationale moved to docs/deploy.md (backend#33).
+[tool.agentic-os.code-comments]
+excludes = [
+    ".pre-commit-config.yaml",
+]

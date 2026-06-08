@@ -47,7 +47,7 @@ Bearer-token auth on every mode route except `/health`. Fails closed when `DATAS
 
 ## Release
 
-CI builds the image, `docker save`s it, streams to kai-server's k3s containerd, applies the manifest, rolls the deployment. No registry pull.
+CI builds the image and pushes it to the in-cluster registry (plain http via the DinD sidecar), then rolls the deployment as the deployer ServiceAccount. No GHCR, no docker-save sideload. See [docs/deploy.md](docs/deploy.md).
 
 ## Agent rules
 

@@ -28,8 +28,8 @@ repos:
         stages: [pre-commit, pre-push]
 
   # BEGIN managed by agentic-os/scripts/apply-agentic-os-hooks.py
-  - repo: https://github.com/coilyco-flight-deck/agentic-os
-    rev: v0.11.1
+  - repo: https://forgejo.coilysiren.me/coilyco-flight-deck/agentic-os
+    rev: v0.17.0
     hooks:
       - id: catalog-doc-size
       - id: catalog-trifecta
@@ -40,7 +40,9 @@ repos:
       - id: validate-skills
       - id: dead-cross-links
       - id: repo-pointer-skills
-      - id: closes-issue
-      - id: conventional-commit
+      - id: misplaced-skills
+      - id: merge-conflicts
+      - id: agent-compose-size
+      - id: agent-compose-dedup
       - id: trufflehog
   # END managed by agentic-os/scripts/apply-agentic-os-hooks.py

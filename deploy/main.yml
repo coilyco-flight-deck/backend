@@ -3,11 +3,6 @@ kind: Namespace
 metadata:
   name: ${NAME}
 ---
-# Deployer ServiceAccount for the Forgejo Actions release pipeline. The CI
-# deploy job authenticates as this SA to roll the app Deployment over the
-# LAN (kubeconfig in the Forgejo Actions secret DEPLOY_KUBECONFIG on
-# coilysiren/backend, built from this SA's token Secret below). No tailnet
-# join, no SSH. See coilysiren/backend#25.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -44,10 +39,6 @@ subjects:
     name: deployer
     namespace: ${NAME}
 ---
-# Long-lived token for the deployer SA. Kubernetes populates token, ca.crt,
-# and namespace into this Secret; the DEPLOY_KUBECONFIG Forgejo secret is
-# built from its ca.crt + token. Regenerate the kubeconfig if rotated. The
-# token never lives in git. See coilysiren/backend#25.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -57,14 +48,6 @@ metadata:
     kubernetes.io/service-account.name: deployer
 type: kubernetes.io/service-account-token
 ---
-# No pull-secret. The image is built by Forgejo Actions and pushed to the
-# in-cluster registry (192.168.0.194:30500, plain http). The app pod is
-# pinned to kai-server, whose containerd has the insecure-registry entry in
-# registries.yaml, so the pull lands there. See coilysiren/infrastructure#171.
-#
-# Postgres password for the ambient datastore. Backs both the Postgres
-# StatefulSet (POSTGRES_PASSWORD) and the app's asyncpg pool (PGPASSWORD).
-# /coilysiren/backend/db-password lives in AWS SSM (SecureString).
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -83,10 +66,6 @@ spec:
       remoteRef:
         key: /coilysiren/backend/db-password
 ---
-# Bearer token for every mode route. The app validates it via
-# backend/datastore.py's require_token dependency. The CI release pipeline
-# and the Mac-side poller send it. /coilysiren/backend/datastore-token
-# lives in AWS SSM (SecureString).
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -105,8 +84,6 @@ spec:
       remoteRef:
         key: /coilysiren/backend/datastore-token
 ---
-# Sentry DSN for this service, synced from AWS SSM via external-secrets.
-# Consumed by backend/telemetry.py's `sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"))`.
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -125,10 +102,6 @@ spec:
       remoteRef:
         key: /sentry-dsn/backend
 ---
-# Tailnet device for this service. Auth key minted by
-# terraform/tailscale-devices/ in coilysiren/infrastructure under the
-# short name `backend`; lands in SSM at /coilysiren/backend/ts-authkey
-# and the ExternalSecret below materializes it into the namespace.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -185,9 +158,6 @@ spec:
       remoteRef:
         key: /coilysiren/backend/ts-authkey
 ---
-# Tailnet auth key for the db Pod's ts sidecar. Minted by
-# terraform/tailscale-devices/ in coilysiren/infrastructure under the
-# name backend-db; lands in SSM at /coilysiren/backend-db/ts-authkey.
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -210,9 +180,6 @@ spec:
       remoteRef:
         key: /coilysiren/backend-db/ts-authkey
 ---
-# Headless Service for the Postgres StatefulSet's pod-DNS. The app reaches
-# the database at `${NAME}-db` inside the namespace. Same pattern as the
-# forgejo deploy in coilysiren/infrastructure.
 apiVersion: v1
 kind: Service
 metadata:
@@ -230,11 +197,6 @@ spec:
   selector:
     app: ${NAME}-db
 ---
-# pg_hba.conf for the Postgres StatefulSet. Trust on the tailnet: the db
-# Pod joins the tailnet via the ts sidecar, and the Tailscale ACL already
-# limits tag:k8s nodes to user member devices, so a tailnet connection is
-# already an authenticated one. In-cluster traffic (the app, pod CIDR
-# 10.42.0.0/16) keeps password auth. See backend#79.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -271,8 +233,6 @@ spec:
       containers:
         - name: postgres
           image: postgres:17
-          # Custom hba_file outside PGDATA - trust on the tailnet, password
-          # in-cluster. See the ${NAME}-db-hba ConfigMap and backend#79.
           args: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
           ports:
             - name: postgres
@@ -302,9 +262,6 @@ spec:
             - name: pg-hba
               mountPath: /etc/postgresql
               readOnly: true
-        # tailscale sidecar in kernel mode - puts the db Pod on the tailnet
-        # as `backend-db` so desktop DB clients reach it directly. Auth key
-        # minted by terraform/tailscale-devices/ under the name backend-db.
         - name: ts
           image: tailscale/tailscale:v1.78.1
           env:
@@ -346,9 +303,6 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            # Ambient KV store of small JSON docs - single-digit MB in
-            # practice. 5Gi matches the live PVC; volumeClaimTemplates is
-            # immutable, so this can't be lowered without recreating it.
             storage: 5Gi
 ---
 apiVersion: apps/v1
@@ -368,16 +322,11 @@ spec:
         app: ${NAME}-app
     spec:
       serviceAccountName: ${NAME}-ts
-      # /dev/net/tun for the ts sidecar lives on kai-server (native
-      # Linux 6.8); WSL2 nodes don't expose it.
       nodeSelector:
         kubernetes.io/hostname: kai-server
       containers:
         - name: ${NAME}
           image: ${IMAGE}
-          # Pulled from the in-cluster registry (192.168.0.194:30500) by
-          # kai-server's containerd over plain http. Always, so each rolled
-          # ${git-hash} tag is fetched fresh. See coilysiren/infrastructure#171.
           imagePullPolicy: Always
           resources:
             requests:
@@ -412,8 +361,6 @@ spec:
                 secretKeyRef:
                   name: ${NAME}-sentry
                   key: SENTRY_DSN
-            # Temp-tier file storage for the `file` mode. Backed by the
-            # ephemeral emptyDir below - write-only, gone on Pod restart.
             - name: FILE_TEMP_DIR
               value: /data/temp
           volumeMounts:
@@ -421,8 +368,6 @@ spec:
               mountPath: /data/temp
           ports:
             - containerPort: 80
-        # tailscale sidecar in kernel mode. Same pattern as canary
-        # repo-recall (coilysiren/infrastructure#201) and eco-mcp-app.
         - name: ts
           image: tailscale/tailscale:v1.78.1
           env:
@@ -454,8 +399,6 @@ spec:
               cpu: 200m
               memory: 128Mi
       restartPolicy: Always
-      # Ephemeral temp tier for the `file` mode. emptyDir - lives and dies
-      # with the Pod, no durable tier in v1.
       volumes:
         - name: file-temp
           emptyDir: {}
@@ -474,5 +417,3 @@ spec:
     - port: 80
       targetPort: 80
       protocol: TCP
-# No Ingress. The service is internal-only, reachable on the tailnet via the
-# in-Pod Tailscale sidecar (TS_HOSTNAME=api). No public TLS, no cert-manager.
