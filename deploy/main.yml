@@ -119,7 +119,7 @@ rules:
     verbs: ["create"]
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["ts-state", "ts-state-db"]
+    resourceNames: ["ts-state"]
     verbs: ["get", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -158,28 +158,6 @@ spec:
       remoteRef:
         key: /coilysiren/backend/ts-authkey
 ---
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: ts-authkey-db
-  namespace: ${NAME}
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: aws-parameter-store
-    kind: ClusterSecretStore
-  target:
-    name: ts-authkey-db
-    creationPolicy: Owner
-    template:
-      type: Opaque
-      data:
-        authkey: "{{ .authkey }}"
-  data:
-    - secretKey: authkey
-      remoteRef:
-        key: /coilysiren/backend-db/ts-authkey
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -207,8 +185,6 @@ data:
     local   all   all                         trust
     host    all   all   127.0.0.1/32          trust
     host    all   all   ::1/128               trust
-    host    all   all   100.64.0.0/10         trust
-    host    all   all   fd7a:115c:a1e0::/48   trust
     host    all   all   10.42.0.0/16          scram-sha-256
 ---
 apiVersion: apps/v1
@@ -262,36 +238,6 @@ spec:
             - name: pg-hba
               mountPath: /etc/postgresql
               readOnly: true
-        - name: ts
-          image: tailscale/tailscale:v1.78.1
-          env:
-            - name: TS_HOSTNAME
-              value: backend-db
-            - name: TS_KUBE_SECRET
-              value: ts-state-db
-            - name: TS_USERSPACE
-              value: "false"
-            - name: TS_AUTH_ONCE
-              value: "true"
-            - name: TS_EXTRA_ARGS
-              value: "--accept-dns=false"
-            - name: TS_AUTHKEY
-              valueFrom:
-                secretKeyRef:
-                  name: ts-authkey-db
-                  key: authkey
-          securityContext:
-            privileged: true
-            runAsUser: 0
-            runAsGroup: 0
-            runAsNonRoot: false
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
       volumes:
         - name: pg-hba
           configMap:

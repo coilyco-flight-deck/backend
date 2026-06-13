@@ -16,13 +16,11 @@ Each `ExternalSecret` syncs one AWS SSM parameter into the namespace on a 1h ref
 - **`${NAME}-datastore-token`** - `/coilysiren/backend/datastore-token` (SecureString). Bearer token for every mode route, validated by `backend/datastore.py`'s `require_token` dependency. The CI pipeline and the Mac-side poller send it.
 - **`${NAME}-sentry`** - `/sentry-dsn/backend`. Consumed by `backend/telemetry.py`'s `sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"))`.
 - **`ts-authkey`** - `/coilysiren/backend/ts-authkey`. Tailnet auth key for the app pod, minted by `terraform/tailscale-devices/` in infrastructure under the short name `backend`.
-- **`ts-authkey-db`** - `/coilysiren/backend-db/ts-authkey`. Tailnet auth key for the db pod's ts sidecar, minted under the name `backend-db`.
 
 ## Postgres
 
 - **Headless Service** - `${NAME}-db` clusterIP `None`, for the StatefulSet's pod-DNS. The app reaches the database at `${NAME}-db` inside the namespace. Same pattern as the forgejo deploy in infrastructure.
-- **pg_hba.conf ConfigMap** - trust on the tailnet. The db pod joins the tailnet via its ts sidecar, and the Tailscale ACL already limits `tag:k8s` nodes to member devices, so a tailnet connection is already authenticated. In-cluster traffic (the app, pod CIDR `10.42.0.0/16`) keeps `scram-sha-256` password auth. The StatefulSet runs `postgres` with `hba_file=/etc/postgresql/pg_hba.conf`, a custom path outside PGDATA. See backend#79.
-- **ts sidecar** - kernel mode, puts the db pod on the tailnet as `backend-db` so desktop DB clients reach it directly.
+- **pg_hba.conf ConfigMap** - in-cluster only. The app (pod CIDR `10.42.0.0/16`) authenticates with `scram-sha-256`; loopback keeps `trust` for in-pod maintenance. The db pod is no longer on the tailnet, so there is no passwordless tailnet path. The StatefulSet runs `postgres` with `hba_file=/etc/postgresql/pg_hba.conf`, a custom path outside PGDATA. See backend#79.
 - **Storage** - `5Gi` matches the live PVC. `volumeClaimTemplates` is immutable, so this can't be lowered without recreating the volume. The KV store holds small JSON docs (single-digit MB in practice).
 
 ## App Deployment
