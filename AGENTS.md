@@ -19,7 +19,7 @@ Per the workspace "Default to proactive scheduling" rule: after pushing to `main
 
 ## Commands
 
-Route every dev command through coily, which reads [`.coily/coily.yaml`](.coily/coily.yaml). The lockdown denies bare invocations of the underlying tools (`make`, `uv`, `npm`, `dotnet`, `docker`, `cargo`, etc.). Add new verbs to that file before invoking them.
+Route every dev command through ward, which reads [`.ward/ward.yaml`](.ward/ward.yaml) (run verbs with `ward exec <verb>`). The lockdown denies bare invocations of the underlying tools (`make`, `uv`, `npm`, `dotnet`, `docker`, `cargo`, etc.). Add new verbs to that file before invoking them.
 
 ## Scope
 
@@ -35,7 +35,7 @@ Internal-only service. Deploy config follows the canonical homelab rig, not this
 
 ## Validation
 
-`coily exec test` runs the pytest suite. Pre-commit (`pre-commit run --all-files`) covers ruff, mypy, trufflehog, and the agentic-os documentation/catalog hooks.
+`ward exec test` runs the pytest suite. Pre-commit (`pre-commit run --all-files`) covers ruff, mypy, trufflehog, and the agentic-os documentation/catalog hooks.
 
 ## Safety
 
@@ -57,6 +57,6 @@ Workspace defaults from `../AGENTS.md` apply. Repo-local additions are documente
 
 - [README.md](README.md) - human-facing intro.
 - [docs/FEATURES.md](docs/FEATURES.md) - inventory of what ships today.
-- [.coily/coily.yaml](.coily/coily.yaml) - allowlisted commands. Agents route through coily, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`.
+- [.ward/ward.yaml](.ward/ward.yaml) - allowlisted commands (`ward exec`). Agents route through ward, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`. ([.coily/coily.yaml](.coily/coily.yaml) retained during the .coily -> .ward migration window.)
 
 Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilyco-bridge/agentic-os-kai/issues/313).
