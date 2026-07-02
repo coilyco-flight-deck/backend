@@ -24,13 +24,13 @@ Every mode route except `/health` requires an `Authorization: Bearer <DATASTORE_
 
 ## Develop
 
-Install, run, and test instructions live in [docs/dev.md](docs/dev.md). Dev commands are declared in [`.coily/coily.yaml`](.coily/coily.yaml); run them as `coily exec <verb>`.
+Install, run, and test instructions live in [docs/dev.md](docs/dev.md). Dev commands are declared in [`.ward/ward.yaml`](.ward/ward.yaml); run them as `ward exec <verb>`.
 
 ## See also
 
 - [AGENTS.md](AGENTS.md) - agent-facing operating rules.
 - [docs/FEATURES.md](docs/FEATURES.md) - inventory of what ships today.
 - [docs/dev.md](docs/dev.md) - local install, env, run, test.
-- [.coily/coily.yaml](.coily/coily.yaml) - allowlisted commands.
+- [.ward/ward.yaml](.ward/ward.yaml) - allowlisted commands.
 
 Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilyco-bridge/agentic-os-kai/issues/313).
