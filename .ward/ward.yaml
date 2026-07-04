@@ -1,10 +1,10 @@
-# Per-repo command allowlist for backend. Coily is the canonical entry
+# Per-repo command allowlist for backend. ward is the canonical entry
 # point for dev verbs here; the lockdown denies bare uv/docker invocations,
-# so operators (human or agent) type `coily <verb>`, not `make build-native`.
+# so operators (human or agent) type `ward exec <verb>`, not `make build-native`.
 #
-# Names follow coily's [a-z0-9-] rule. Argv validation rejects shell
+# Names follow ward's [a-z0-9-] rule. Argv validation rejects shell
 # metacharacters at invocation time, so flags forward verbatim through
-# coily's user-extras mechanism.
+# ward's user-extras mechanism.
 
 commands:
   build-native:

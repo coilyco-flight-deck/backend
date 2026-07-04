@@ -2,9 +2,9 @@ DEFAULT_GOAL := help
 
 .PHONY: deploy
 
-dns-name ?= $(shell cat coily.yaml | yq e '.dns-name')
-email ?= $(shell cat coily.yaml | yq e '.email')
-name ?= $(shell cat coily.yaml | yq e '.name')
+dns-name ?= $(shell cat ward.yaml | yq e '.dns-name')
+email ?= $(shell cat ward.yaml | yq e '.email')
+name ?= $(shell cat ward.yaml | yq e '.name')
 name-dashed ?= $(subst /,-,$(name))
 git-hash ?= $(shell git rev-parse HEAD)
 # Fully-qualified ref into the in-cluster registry. Forgejo Actions builds

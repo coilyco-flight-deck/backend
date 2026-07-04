@@ -13,8 +13,8 @@ Deploy config (Dockerfile, Makefile, `deploy/main.yml`, `.github/workflows/build
 Per the workspace "Default to proactive scheduling" rule: after pushing to `main`, schedule a wake-up to verify the build-publish-deploy job reached steady state on kai-server. CI runs docker build + push + k8s rollout; total time is ~6-12 min.
 
 - **Cadence**: 720s (12 min) after push. Build is the slow part; rollout is fast. 12 min lands after the long tail.
-- **Verify CI**: `coily gh run list --repo coilysiren/backend --limit 1` should show the run as `completed/success`. If in progress, re-schedule once at +300s; if failed, surface and stop.
-- **Verify rollout**: `coily kubectl --context=kai-server -n coilysiren-backend rollout status deployment/coilysiren-backend-app --timeout=2m`.
+- **Verify CI**: `ward-kdl ops forgejo action ci-watch` watches the latest `build-publish-deploy` run to completion and exits non-zero if a job fails. If it is still in progress, re-schedule once at +300s; if it failed, surface and stop.
+- **Verify rollout**: `ward-kdl ops kubectl rollout status deployment/coilysiren-backend-app -n coilysiren-backend --timeout=2m`.
 - **Skip** for docs-only pushes (no rebuild produces no behavior change to wait on).
 
 ## Commands
@@ -57,6 +57,6 @@ Workspace defaults from `../AGENTS.md` apply. Repo-local additions are documente
 
 - [README.md](README.md) - human-facing intro.
 - [docs/FEATURES.md](docs/FEATURES.md) - inventory of what ships today.
-- [.ward/ward.yaml](.ward/ward.yaml) - allowlisted commands (`ward exec`). Agents route through ward, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`. ([.coily/coily.yaml](.coily/coily.yaml) retained during the .coily -> .ward migration window.)
+- [.ward/ward.yaml](.ward/ward.yaml) - allowlisted commands (`ward exec`). Agents route through ward, not bare `make` / `uv` / `python` / `npm` / `cargo` / `dotnet`.
 
 Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilyco-bridge/agentic-os-kai/issues/313).

@@ -24,7 +24,7 @@ A generic data-accessibility framework. An internal FastAPI service with Postgre
 ## CI release status
 
 - **Release pipeline write** - the `build-publish-deploy` workflow POSTs `{repo, commit, status, run_url}` into the document mode, namespace `ci-status`, keyed by `<repo>@<commit>`. POST goes to the internal tailnet host `api`.
-- **Mac-side poller** - reads by `{repo, commit}` and fires a local macOS notification. Lives in `coily` (tracked separately).
+- **Mac-side poller** - reads by `{repo, commit}` and fires a local macOS notification. Tracked separately (was `coily`, retired).
 
 ## Observability
 
