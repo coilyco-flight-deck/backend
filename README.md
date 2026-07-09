@@ -2,7 +2,7 @@
 
 A generic data-accessibility framework. An internal operational backend with Postgres behind it, exposing a small set of uniform **modes**, each a FastAPI router with a generic endpoint and a self-documenting sentinel record. Internal-only - reachable on the tailnet via an in-Pod Tailscale sidecar, no public ingress. Design: [coilysiren/backend#77](https://github.com/coilyco-flight-deck/backend/issues/77), [coilysiren/backend#65](https://github.com/coilyco-flight-deck/backend/issues/65), [coilysiren/agentic-os-kai#657](https://github.com/coilyco-bridge/agentic-os-kai/issues/657).
 
-Deploys to the k3s homelab via the canonical rig in [infrastructure/docs/k3s-deploy-notes.md](../infrastructure/docs/k3s-deploy-notes.md).
+The source CI builds and publishes the image. The Kubernetes rollout lives in [coilyco-bridge/deploy](https://forgejo.coilysiren.me/coilyco-bridge/deploy), which owns the runtime manifest for this service.
 
 ## Modes
 

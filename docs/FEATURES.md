@@ -36,7 +36,7 @@ A generic data-accessibility framework. An internal FastAPI service with Postgre
 ## Platform and deployment
 
 - **Container image** - Python 3.13 + uv multi-stage build.
-- **In-cluster registry deploy** - the `build-publish-deploy` Forgejo Actions workflow builds the image, pushes it to the in-cluster registry over plain http, then `set image` + rollout. See [docs/deploy.md](deploy.md).
+- **In-cluster registry publish** - the `build-publish-deploy` workflow builds the image and pushes it over plain http. Rollout lives in [coilyco-bridge/deploy](https://forgejo.coilysiren.me/coilyco-bridge/deploy).
 - **Kubernetes manifests** - app Deployment, Postgres StatefulSet + 5Gi PVC, ClusterIP + headless DB Service, ExternalSecrets, an `emptyDir` temp tier for the file mode. No Ingress.
 - **Internal-only** - reachable on the tailnet through the in-Pod Tailscale sidecar at host `api`. No public ingress, no TLS, no TrustedHost allowlist.
 - **Secret sync** - Postgres password / datastore token / Sentry DSN / Tailscale authkey from AWS SSM, 1h refresh.
@@ -51,7 +51,7 @@ A generic data-accessibility framework. An internal FastAPI service with Postgre
 
 - [README.md](../README.md) - human-facing intro.
 - [AGENTS.md](../AGENTS.md) - agent-facing operating rules.
-- [docs/deploy.md](deploy.md) - deploy pipeline and cluster manifest walkthrough.
+- [docs/deploy.md](deploy.md) - deploy pipeline and rollout pointer.
 - [.ward/ward.yaml](../.ward/ward.yaml) - allowlisted commands.
 
 Cross-reference convention from [coilysiren/agentic-os-kai#313](https://github.com/coilyco-bridge/agentic-os-kai/issues/313).
