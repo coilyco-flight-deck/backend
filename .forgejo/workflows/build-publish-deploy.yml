@@ -49,13 +49,29 @@ jobs:
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
       - name: Roll deployment
-        env:
-          DEPLOY_KUBECONFIG: ${{ secrets.DEPLOY_KUBECONFIG }}
         run: |
           set -euo pipefail
           IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
-          echo "$DEPLOY_KUBECONFIG" | base64 -d > /tmp/kubeconfig
-          export KUBECONFIG=/tmp/kubeconfig
+          mkdir -p ~/.kube
+          cat <<EOF > ~/.kube/config
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - name: default
+            cluster:
+              server: ${{ secrets.K8S_SERVER }}
+              certificate-authority-data: ${{ secrets.K8S_CA_DATA }}
+          contexts:
+          - name: default
+            context: {cluster: default, user: default}
+          current-context: default
+          preferences: {}
+          users:
+          - name: default
+            user:
+              client-certificate-data: ${{ secrets.K8S_CLIENT_CERT_DATA }}
+              client-key-data: ${{ secrets.K8S_CLIENT_KEY_DATA }}
+          EOF
           kubectl -n coilysiren-backend set image \
             deploy/coilysiren-backend-app coilysiren-backend="$IMAGE"
           kubectl -n coilysiren-backend rollout status \
