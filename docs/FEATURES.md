@@ -21,11 +21,6 @@ A generic data-accessibility framework. An internal FastAPI service with Postgre
 - **sql** - generic relational mode. Creates a real typed table `sql_<name>` from a column spec, tracked in a `sql_tables` registry, then CRUD its rows. Strict identifier regex + closed type allowlist.
 - **file** - temp-tier file storage on an ephemeral `emptyDir`. `POST /files/temp` writes a raw body and returns an id. Write-only by design, no read route in v1.
 
-## CI release status
-
-- **Release pipeline write** - the `build-publish-deploy` workflow POSTs `{repo, commit, status, run_url}` into the document mode, namespace `ci-status`, keyed by `<repo>@<commit>`. POST goes to the internal tailnet host `api`.
-- **Mac-side poller** - reads by `{repo, commit}` and fires a local macOS notification. Tracked separately (was `coily`, retired).
-
 ## Observability
 
 - **OpenTelemetry tracing** - FastAPI auto-instrumentation, custom middleware spans.

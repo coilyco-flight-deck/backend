@@ -1,3 +1,6 @@
+# The runner pod's DinD sidecar is reachable through whichever host answers
+# first, so probe the current gateway, DOCKER_HOST, localhost, and the unix
+# socket. Fail closed if none respond.
 name: build-publish-deploy
 
 on:
@@ -20,28 +23,25 @@ jobs:
     container: forgejo.coilysiren.me/coilyco-flight-deck/agentic-os:v0.195.0
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve docker host
+        run: |
+          set -euo pipefail
+          gw=$(node -e "const fs=require('fs');const l=(fs.readFileSync('/proc/net/route','utf8').split('\n').find(x=>x.split('\t')[1]==='00000000'))||'';const h=l.split(/\s+/)[2]||'';if(h){console.log(h.match(/../g).reverse().map(x=>parseInt(x,16)).join('.'))}" || true)
+          for h in "tcp://${gw}:2375" "${DOCKER_HOST:-}" tcp://localhost:2375 unix:///var/run/docker.sock; do
+            [ -z "$h" ] && continue
+            [ "$h" = "tcp://:2375" ] && continue
+            if docker -H "$h" info >/dev/null 2>&1; then
+              echo "docker daemon reachable at $h"
+              echo "DOCKER_HOST=$h" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "no docker daemon at $h"
+          done
+          echo "no reachable docker daemon" >&2
+          exit 1
       - name: Build and push
         run: |
           set -euo pipefail
           IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
-      - name: report status to datastore
-        if: always()
-        env:
-          DATASTORE_TOKEN: ${{ secrets.DATASTORE_TOKEN }}
-          REPO: ${{ github.repository }}
-          COMMIT: ${{ github.sha }}
-          STATUS: ${{ job.status }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl -fsS -X POST http://api/document \
-            -H "Authorization: Bearer $DATASTORE_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -nc \
-              --arg repo "$REPO" \
-              --arg commit "$COMMIT" \
-              --arg status "$STATUS" \
-              --arg run_url "$RUN_URL" \
-              '{namespace:"ci-status", key:($repo+"@"+$commit), payload:{repo:$repo, commit:$commit, status:$status, run_url:$run_url}}')" \
-            || echo "datastore status report failed (non-fatal)"
