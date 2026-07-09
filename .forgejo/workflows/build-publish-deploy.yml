@@ -8,32 +8,24 @@ on:
 jobs:
   test:
     runs-on: docker
+    container: forgejo.coilysiren.me/coilyco-flight-deck/agentic-os:v0.195.0
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
       - run: uv run pytest
 
   deploy:
     runs-on: docker
     needs: test
+    container: forgejo.coilysiren.me/coilyco-flight-deck/agentic-os:v0.195.0
     steps:
       - uses: actions/checkout@v4
-      - name: Install deploy tooling
+      - name: Install kubectl
         run: |
           set -euo pipefail
-          docker_cli_ver=$(curl -fsSL https://download.docker.com/linux/static/stable/x86_64/ \
-            | grep -oE 'docker-[0-9]+\.[0-9]+\.[0-9]+\.tgz' | sort -V | tail -1 \
-            | sed -E 's/^docker-(.*)\.tgz$/\1/')
-          curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${docker_cli_ver}.tgz" \
-            | tar -xz -C /tmp
-          install /tmp/docker/docker /usr/local/bin/docker
           curl -fsSL -o /usr/local/bin/kubectl \
             "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x /usr/local/bin/kubectl
-          curl -fsSL -o /usr/local/bin/jq \
-            https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64
-          chmod +x /usr/local/bin/jq
       - name: Resolve docker host
         run: |
           set -euo pipefail
