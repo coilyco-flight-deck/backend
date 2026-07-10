@@ -17,6 +17,12 @@ jobs:
       - run: uv sync --frozen
       - run: uv run pytest
 
+      - name: Alert Telegram on main failure
+        if: ${{ failure() && github.ref == 'refs/heads/main' }}
+        uses: coilyco-flight-deck/agentic-os/actions/telegram-alert@main
+        with:
+          bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat-id: ${{ secrets.TELEGRAM_RED_CHAT_ID }}
   publish:
     runs-on: docker
     needs: test
@@ -45,3 +51,9 @@ jobs:
           IMAGE=192.168.0.194:30500/coilysiren-backend:${{ github.sha }}
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
+      - name: Alert Telegram on main failure
+        if: ${{ failure() && github.ref == 'refs/heads/main' }}
+        uses: coilyco-flight-deck/agentic-os/actions/telegram-alert@main
+        with:
+          bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat-id: ${{ secrets.TELEGRAM_RED_CHAT_ID }}
